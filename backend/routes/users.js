@@ -103,6 +103,12 @@ router.delete('/:id', auth, allow('admin'), async (req, res) => {
     if (String(id) === String(req.user.id))
       return res.status(400).json({ success: false, message: 'Tidak dapat menghapus akun sendiri.' });
 
+    const [userRows] = await db.query('SELECT role FROM users WHERE id = ?', [id]);
+    if (userRows.length === 0)
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    if (userRows[0].role === 'admin')
+      return res.status(400).json({ success: false, message: 'User admin tidak dapat dihapus.' });
+
     const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
     if (result.affectedRows === 0)
       return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });

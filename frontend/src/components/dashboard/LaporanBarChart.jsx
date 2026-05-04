@@ -45,14 +45,14 @@ const CustomTooltip = ({ active, payload, label }) => {
             <span style={{ width: 8, height: 8, borderRadius: 2, background: p.fill, display: 'inline-block' }} />
             {BARS.find(b => b.key === p.dataKey)?.label}
           </span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>
             {p.value}
           </span>
         </div>
       ))}
       <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 5, display: 'flex', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>Total</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>{total}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)' }}>{total}</span>
       </div>
     </div>
   );
@@ -62,7 +62,8 @@ function SkeletonBar() {
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px 20px 16px',
+      borderRadius: 14, padding: '20px 20px 16px',
+      boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
     }}>
       <div className="skeleton" style={{ width: 180, height: 14, borderRadius: 4, marginBottom: 20 }} />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 160 }}>
@@ -93,14 +94,31 @@ export default function LaporanBarChart({ data, loading }) {
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px 20px 14px',
+      borderRadius: 14, padding: '20px 20px 14px',
+      boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
+      overflow: 'hidden',
     }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-          Laporan 7 Hari Terakhir
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
+            Tren Pengawasan 7 Hari
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            Breakdown laporan per status pekerjaan
+          </div>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-          Breakdown per status pekerjaan
+        <div style={{
+          fontSize: 10,
+          fontWeight: 800,
+          color: 'var(--accent)',
+          textTransform: 'uppercase',
+          padding: '5px 8px',
+          borderRadius: 999,
+          background: 'var(--accent-bg)',
+          border: '1px solid var(--accent-border)',
+          whiteSpace: 'nowrap',
+        }}>
+          Live summary
         </div>
       </div>
 
@@ -121,7 +139,7 @@ export default function LaporanBarChart({ data, loading }) {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="tanggal"
-              tick={{ fill: 'var(--dim)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+              tick={{ fill: 'var(--dim)', fontSize: 10 }}
               axisLine={false} tickLine={false}
             />
             <YAxis

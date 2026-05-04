@@ -26,7 +26,7 @@ async function generateSWAId() {
 // ── GET /api/swa ─────────────────────────────────────────────────
 router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
-    const { tanggal_dari, tanggal_sampai, id_laporan, page = 1, limit = 20 } = req.query;
+    const { tanggal_dari, tanggal_sampai, id_laporan, lokasi, id_up3, id_ulp, page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let where    = 'WHERE 1=1';
@@ -35,11 +35,17 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     if (tanggal_dari)  { where += ' AND DATE(s.tanggal) >= ?';              params.push(tanggal_dari); }
     if (tanggal_sampai){ where += ' AND DATE(s.tanggal) <= ?';              params.push(tanggal_sampai); }
     if (id_laporan)    { where += ' AND s.id_laporan_pengawasan = ?';        params.push(id_laporan); }
+    if (lokasi)        { where += ' AND lp.lokasi LIKE ?';                   params.push(`%${lokasi}%`); }
+    if (id_up3)        { where += ' AND lp.id_up3 = ?';                      params.push(id_up3); }
+    if (id_ulp)        { where += ' AND lp.id_ulp = ?';                      params.push(id_ulp); }
 
     const baseSql = `
       FROM swa s
       LEFT JOIN laporan_pengawasan lp ON s.id_laporan_pengawasan = lp.id
-      LEFT JOIN master_up3 mu ON lp.id_up3 = mu.id
+      LEFT JOIN dc_apj mu ON lp.id_up3 = mu.APJ_ID
+      LEFT JOIN dc_upj du ON lp.id_ulp = du.UPJ_ID
+      LEFT JOIN master_regu mr ON lp.id_regu = mr.id
+      LEFT JOIN master_vendor mv ON lp.id_vendor = mv.id
       ${where}
     `;
 
@@ -50,9 +56,13 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
         s.*,
         lp.tanggal            AS tanggal_laporan,
         lp.uraian_pekerjaan,
+        lp.lokasi,
         lp.status_pekerjaan,
         lp.hasil_monitoring,
-        mu.nama_up3
+        mu.APJ_NAMA AS nama_up3,
+        du.UPJ_NAMA AS nama_ulp,
+        mr.nama_regu,
+        mv.nama_vendor
       ${baseSql}
       ORDER BY s.tanggal DESC
       LIMIT ? OFFSET ?
@@ -74,13 +84,24 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 });
 
 // ── POST /api/swa ────────────────────────────────────────────────
-router.post('/', auth, allow('admin', 'user'), async (req, res) => {
+router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const { id_laporan_pengawasan, catatan, tindakan, status_swa, keterangan } = req.body;
 
     // Validasi field wajib
-    if (!id_laporan_pengawasan || !catatan || !tindakan)
-      return res.status(400).json({ success: false, message: 'Field wajib tidak lengkap: id_laporan_pengawasan, catatan, tindakan.' });
+    if (!id_laporan_pengawasan || !catatan || !tindakan || !status_swa)
+      return res.status(400).json({ success: false, message: 'Field wajib tidak lengkap: id_laporan_pengawasan, catatan, tindakan, status_swa.' });
+
+    const allowedStatus = ['berjalan setelah perbaikan', 'diberhentikan'];
+    if (status_swa && !allowedStatus.includes(status_swa))
+      return res.status(400).json({ success: false, message: 'Status SWA tidak valid.' });
+
+    const [existingRows] = await db.query(
+      'SELECT id FROM swa WHERE id_laporan_pengawasan = ? LIMIT 1',
+      [id_laporan_pengawasan]
+    );
+    if (existingRows.length > 0)
+      return res.status(400).json({ success: false, message: 'SWA untuk laporan ini sudah pernah dibuat.' });
 
     const id = await generateSWAId();
     const [[noUrutRow]] = await db.query('SELECT COALESCE(MAX(no_urut), 0) + 1 AS nxt FROM swa');
@@ -93,7 +114,7 @@ router.post('/', auth, allow('admin', 'user'), async (req, res) => {
       id_laporan_pengawasan,
       catatan,
       tindakan,
-      status_swa:  status_swa || 'diberhentikan',
+      status_swa,
       created_by:  req.user.id,
     };
     if (keterangan) data.keterangan = keterangan;
@@ -137,7 +158,7 @@ router.get('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 });
 
 // ── PUT /api/swa/:id ─────────────────────────────────────────────
-router.put('/:id', auth, allow('admin', 'user'), async (req, res) => {
+router.put('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const { id: _id, created_by: _cb, created_at: _ca, ...updateData } = req.body;
     updateData.updated_by = req.user.id;

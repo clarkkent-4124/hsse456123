@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 const APD_CONFIG = [
   { key: 'lengkap',        label: 'Lengkap',        color: '#10b981' },
   { key: 'tidak lengkap',  label: 'Tidak Lengkap',  color: '#ef4444' },
+  { key: 'tidak termonitor', label: 'Tidak Termonitor', color: '#8899b4' },
   { key: 'Belum diisi',    label: 'Belum Diisi',    color: '#5a6a84' },
 ];
 
@@ -30,7 +31,7 @@ const CustomTooltip = ({ active, payload, total }) => {
         {d.name}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
           {d.value}
         </span>
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>{pct}%</span>
@@ -43,7 +44,8 @@ function SkeletonDonut() {
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px',
+      borderRadius: 14, padding: '20px',
+      boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
     }}>
       <div className="skeleton" style={{ width: 140, height: 14, borderRadius: 4, marginBottom: 20 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -82,7 +84,6 @@ export default function StatusAPDDonut({ data, loading }) {
         textAnchor="middle"
         fill="var(--text)"
         fontSize={26} fontWeight={700}
-        fontFamily="JetBrains Mono, monospace"
       >
         {total}
       </text>
@@ -95,14 +96,34 @@ export default function StatusAPDDonut({ data, loading }) {
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px',
+      borderRadius: 14, padding: '20px',
+      boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
     }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
           Status APD
         </div>
         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
           Distribusi kelengkapan APD
+        </div>
+        </div>
+        <div style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          background: 'rgba(16,185,129,0.08)',
+          border: '1px solid rgba(16,185,129,0.22)',
+          color: '#10b981',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <polyline points="9 12 11 14 15 10" />
+          </svg>
         </div>
       </div>
 
@@ -118,7 +139,7 @@ export default function StatusAPDDonut({ data, loading }) {
           <span style={{ fontSize: 12, color: 'var(--dim)' }}>Belum ada data</span>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           {/* Donut */}
           <div style={{ width: 150, height: 150, flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -159,7 +180,6 @@ export default function StatusAPDDonut({ data, loading }) {
                   </div>
                   <span style={{
                     fontSize: 16, fontWeight: 700, color: d.color,
-                    fontFamily: 'JetBrains Mono, monospace',
                   }}>
                     {d.value}
                   </span>

@@ -34,18 +34,34 @@ async function nextNoUrut() {
 const BASE_SELECT = `
   SELECT
     lp.*,
-    mu.kode_up3,  mu.nama_up3,
-    mul.kode_ulp, mul.nama_ulp,
+    mu.APJ_ID AS kode_up3,  mu.APJ_NAMA AS nama_up3,
+    mul.UPJ_ID AS kode_ulp, mul.UPJ_NAMA AS nama_ulp,
     mr.nama_regu,
     mv.kode_vendor, mv.nama_vendor,
-    ml.kode_lokasi, ml.nama_lokasi,
+    lp.lokasi AS nama_lokasi,
+    CASE WHEN sw.id IS NULL THEN 0 ELSE 1 END AS has_swa,
+    sw.id AS swa_id,
+    sw.tanggal AS swa_tanggal,
+    sw.catatan AS swa_catatan,
+    sw.tindakan AS swa_tindakan,
+    sw.status_swa,
+    sw.keterangan AS swa_keterangan,
     u.nama AS nama_created_by
   FROM laporan_pengawasan lp
-  LEFT JOIN master_up3    mu  ON lp.id_up3    = mu.id
-  LEFT JOIN master_ulp    mul ON lp.id_ulp    = mul.id
+  LEFT JOIN dc_apj        mu  ON lp.id_up3    = mu.APJ_ID
+  LEFT JOIN dc_upj        mul ON lp.id_ulp    = mul.UPJ_ID
   LEFT JOIN master_regu   mr  ON lp.id_regu   = mr.id
   LEFT JOIN master_vendor mv  ON lp.id_vendor = mv.id
-  LEFT JOIN master_lokasi ml  ON lp.id_lokasi = ml.id
+  LEFT JOIN (
+    SELECT s.*
+    FROM swa s
+    INNER JOIN (
+      SELECT id_laporan_pengawasan, MIN(id) AS id
+      FROM swa
+      GROUP BY id_laporan_pengawasan
+    ) first_swa ON first_swa.id = s.id
+  ) sw
+    ON sw.id_laporan_pengawasan = lp.id
   LEFT JOIN users         u   ON lp.created_by = u.id
 `;
 
@@ -94,12 +110,12 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 });
 
 // ── POST /api/laporan ────────────────────────────────────────────
-router.post('/', auth, allow('admin', 'user'), async (req, res) => {
+router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const {
-      tanggal, id_up3, id_ulp, id_regu, id_lokasi, id_vendor,
+      tanggal, id_up3, id_ulp, id_regu, lokasi, nama_lokasi, id_vendor,
       uraian_pekerjaan, nama_pelaksana, jumlah_pekerjaan,
-      status_cctv, status_apd, hasil_monitoring,
+      status_cctv, keterangan_cctv, status_apd, hasil_monitoring,
       temuan_k3, tindak_lanjut, keterangan,
     } = req.body;
 
@@ -107,29 +123,32 @@ router.post('/', auth, allow('admin', 'user'), async (req, res) => {
     const missing = [];
     if (!tanggal)          missing.push('tanggal');
     if (!id_up3)           missing.push('id_up3');
-    if (!id_ulp)           missing.push('id_ulp');
     if (!id_regu)          missing.push('id_regu');
-    if (!id_lokasi)        missing.push('id_lokasi');
-    if (!uraian_pekerjaan) missing.push('uraian_pekerjaan');
-    if (!nama_pelaksana)   missing.push('nama_pelaksana');
+    const lokasiText = String(lokasi || nama_lokasi || '').trim();
+
+    if (!lokasiText) missing.push('lokasi');
     if (missing.length > 0)
       return res.status(400).json({ success: false, message: `Field wajib tidak lengkap: ${missing.join(', ')}.` });
 
-    const [id, no_urut] = await Promise.all([generateLaporanId(), nextNoUrut()]);
+    const [id, no_urut] = await Promise.all([
+      generateLaporanId(),
+      nextNoUrut(),
+    ]);
 
     const data = {
       id,
       no_urut,
       tanggal,
-      id_up3, id_ulp, id_regu, id_lokasi,
-      uraian_pekerjaan,
-      nama_pelaksana,
+      id_up3, id_ulp: id_ulp || null, id_regu, lokasi: lokasiText,
+      uraian_pekerjaan: uraian_pekerjaan || '',
+      nama_pelaksana: nama_pelaksana || '',
       jumlah_pekerjaan: jumlah_pekerjaan || 1,
       status_pekerjaan: 'pending',
       created_by: req.user.id,
     };
     if (id_vendor)        data.id_vendor        = id_vendor;
     if (status_cctv)      data.status_cctv      = status_cctv;
+    if (keterangan_cctv)  data.keterangan_cctv  = keterangan_cctv;
     if (status_apd)       data.status_apd       = status_apd;
     if (hasil_monitoring) data.hasil_monitoring = hasil_monitoring;
     if (temuan_k3)        data.temuan_k3        = temuan_k3;
@@ -163,23 +182,62 @@ router.get('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 });
 
 // ── PUT /api/laporan/:id ─────────────────────────────────────────
-router.put('/:id', auth, allow('admin', 'user'), async (req, res) => {
+router.put('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      id: _id, created_by: _cb, created_at: _ca,
-      status_pekerjaan: _sp,
-      tanggal_pekerjaan_berjalan: _tb,
-      tanggal_pekerjaan_selesai: _ts,
-      ...updateData
+      tanggal, id_up3, id_ulp, id_regu, lokasi, nama_lokasi, id_vendor,
+      uraian_pekerjaan, nama_pelaksana, jumlah_pekerjaan,
+      status_cctv, keterangan_cctv, status_apd, hasil_monitoring,
+      temuan_k3, tindak_lanjut, keterangan,
     } = req.body;
 
-    updateData.updated_by = req.user.id;
-    updateData.updated_at = new Date();
+    const [existingRows] = await db.query('SELECT status_pekerjaan, hasil_monitoring FROM laporan_pengawasan WHERE id = ?', [id]);
+    if (existingRows.length === 0)
+      return res.status(404).json({ success: false, message: 'Laporan tidak ditemukan.' });
+    if (existingRows[0].status_pekerjaan === 'selesai')
+      return res.status(400).json({ success: false, message: 'Laporan selesai tidak dapat diedit.' });
+
+    const [swaRows] = await db.query('SELECT id FROM swa WHERE id_laporan_pengawasan = ? LIMIT 1', [id]);
+    if (
+      swaRows.length > 0 &&
+      hasil_monitoring &&
+      hasil_monitoring !== existingRows[0].hasil_monitoring
+    ) {
+      return res.status(400).json({ success: false, message: 'Hasil monitoring tidak dapat diubah karena SWA sudah dibuat.' });
+    }
+
+    const lokasiText = String(lokasi || nama_lokasi || '').trim();
+    const missing = [];
+    if (!tanggal)    missing.push('tanggal');
+    if (!id_up3)     missing.push('id_up3');
+    if (!id_regu)    missing.push('id_regu');
+    if (!lokasiText) missing.push('lokasi');
+    if (missing.length > 0)
+      return res.status(400).json({ success: false, message: `Field wajib tidak lengkap: ${missing.join(', ')}.` });
+
+    const updateData = {
+      tanggal,
+      id_up3,
+      id_ulp: id_ulp || null,
+      id_regu,
+      lokasi: lokasiText,
+      id_vendor: id_vendor || null,
+      uraian_pekerjaan: uraian_pekerjaan || '',
+      nama_pelaksana: nama_pelaksana || '',
+      jumlah_pekerjaan: jumlah_pekerjaan || 1,
+      temuan_k3: temuan_k3 || null,
+      tindak_lanjut: tindak_lanjut || null,
+      keterangan: keterangan || null,
+      updated_by: req.user.id,
+      updated_at: new Date(),
+    };
+    if (status_cctv)      updateData.status_cctv      = status_cctv;
+    if (keterangan_cctv)  updateData.keterangan_cctv  = keterangan_cctv;
+    if (status_apd)       updateData.status_apd       = status_apd;
+    if (hasil_monitoring) updateData.hasil_monitoring = hasil_monitoring;
 
     const [result] = await db.query('UPDATE laporan_pengawasan SET ? WHERE id = ?', [updateData, id]);
-    if (result.affectedRows === 0)
-      return res.status(404).json({ success: false, message: 'Laporan tidak ditemukan.' });
 
     const [rows] = await db.query(`${BASE_SELECT} WHERE lp.id = ?`, [id]);
     return res.json({ success: true, data: rows[0], message: 'Laporan berhasil diperbarui.' });
@@ -190,7 +248,7 @@ router.put('/:id', auth, allow('admin', 'user'), async (req, res) => {
 
 // ── PATCH /api/laporan/:id/status ────────────────────────────────
 // Body: { status_pekerjaan: 'berjalan' | 'selesai' | 'pending' }
-router.patch('/:id/status', auth, allow('admin', 'user'), async (req, res) => {
+router.patch('/:id/status', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const { id }              = req.params;
     const { status_pekerjaan } = req.body;

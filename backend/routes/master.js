@@ -5,9 +5,44 @@ const allow   = require('../middleware/roleGuard');
 
 const router = express.Router();
 
-// ── Helper: buat CRUD untuk satu tabel master ────────────────────
+router.get('/up3', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        APJ_ID AS id,
+        APJ_ID AS kode_up3,
+        APJ_NAMA AS nama_up3,
+        APJ_ALIAS AS alias_up3,
+        APJ_DCC AS dcc,
+        APJ_ALAMAT AS alamat
+      FROM dc_apj
+      ORDER BY APJ_NAMA
+    `);
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get('/ulp', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        UPJ_ID AS id,
+        UPJ_ID AS kode_ulp,
+        APJ_ID AS id_up3,
+        UPJ_NAMA AS nama_ulp,
+        UPJ_ALAMAT AS alamat
+      FROM dc_upj
+      ORDER BY UPJ_NAMA
+    `);
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 function masterCRUD(tableName, orderCol = 'nama') {
-  // GET all
   router.get(`/${tableName.replace('master_', '')}`, auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     try {
       const [rows] = await db.query(`SELECT * FROM ${tableName} ORDER BY ${orderCol}`);
@@ -17,11 +52,10 @@ function masterCRUD(tableName, orderCol = 'nama') {
     }
   });
 
-  // POST create
-  router.post(`/${tableName.replace('master_', '')}`, auth, allow('admin'), async (req, res) => {
+  router.post(`/${tableName.replace('master_', '')}`, auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     try {
       const [result] = await db.query(`INSERT INTO ${tableName} SET ?`, [req.body]);
-      const [rows]   = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [result.insertId]);
+      const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [result.insertId]);
       return res.status(201).json({ success: true, data: rows[0], message: 'Data berhasil ditambahkan.' });
     } catch (err) {
       return res.status(500).json({ success: false, message: err.message });
@@ -29,8 +63,6 @@ function masterCRUD(tableName, orderCol = 'nama') {
   });
 }
 
-masterCRUD('master_up3',    'nama_up3');
-masterCRUD('master_ulp',    'nama_ulp');
 masterCRUD('master_regu',   'nama_regu');
 masterCRUD('master_vendor', 'nama_vendor');
 masterCRUD('master_lokasi', 'nama_lokasi');

@@ -52,6 +52,7 @@ const NAV_ITEMS = [
   {
     path: '/admin/user',
     label: 'User Management',
+    adminOnly: true,
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -100,6 +101,7 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.adminOnly || user?.role === 'admin');
 
   const [isMobile, setIsMobile]     = useState(() => window.innerWidth < MOBILE_BP);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -203,7 +205,7 @@ export default function AdminLayout() {
 
         {/* Nav items */}
         <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

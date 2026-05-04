@@ -42,10 +42,8 @@ export default function LoginPage() {
     }
 
     try {
-      const user = await login(username.trim(), password);
-      if (user.role === 'admin')  navigate('/admin/dashboard', { replace: true });
-      else if (user.role === 'user') navigate('/user/dashboard', { replace: true });
-      else navigate('/dashboard', { replace: true });
+      await login(username.trim(), password);
+      navigate('/admin/dashboard', { replace: true });
     } catch (err) {
       setError(err?.message || 'Username atau password salah.');
     }

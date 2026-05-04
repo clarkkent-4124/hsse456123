@@ -1,13 +1,13 @@
 /**
- * Role hierarchy:
- *   admin  → full access (GET + POST + PUT + PATCH + DELETE)
- *   user   → GET + POST + PATCH status
- *   viewer → GET only
+ * Role access:
+ *   admin  -> full access, including User Management
+ *   user   -> full access except User Management
+ *   viewer -> full access except User Management
  *
  * Usage:
  *   router.get('/resource', auth, allow('admin','user','viewer'), handler)
- *   router.post('/resource', auth, allow('admin','user'), handler)
- *   router.delete('/resource/:id', auth, allow('admin'), handler)
+ *   router.post('/resource', auth, allow('admin','user','viewer'), handler)
+ *   router.delete('/users/:id', auth, allow('admin'), handler)
  */
 module.exports = function allow(...roles) {
   return (req, res, next) => {

@@ -515,21 +515,59 @@ export default function UserPage() {
   };
 
   return (
-    <div className="fade-in">
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* ── Page header ────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>User Management</h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4, margin: '4px 0 0' }}>Kelola akun pengguna sistem HSSE</p>
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        padding: '18px 20px',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
+      }}>
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(90deg, rgba(34,211,238,0.07), transparent 52%, rgba(16,185,129,0.06))',
+        pointerEvents: 'none',
+      }} />
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ flex: '1 1 360px', minWidth: 260 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: 'var(--accent-bg)',
+              border: '1px solid var(--accent-border)',
+              color: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>User Management</h1>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--muted)', margin: '5px 0 0', maxWidth: 560, lineHeight: 1.5 }}>Kelola akun, role, dan status akses pengguna sistem HSSE.</p>
         </div>
         <button
           onClick={() => setAddModal(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
-            padding: '9px 18px', borderRadius: 9,
-            border: 'none', background: 'var(--accent)',
-            color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            padding: '10px 18px', borderRadius: 9,
+            border: 'none', background: 'linear-gradient(135deg, var(--accent), #3b82f6)',
+            color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             fontFamily: "'IBM Plex Sans', sans-serif",
+            boxShadow: '0 10px 24px rgba(34,211,238,0.18)',
+            flexShrink: 0,
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -538,21 +576,23 @@ export default function UserPage() {
           Tambah User
         </button>
       </div>
+      </section>
 
       {/* ── Stat cards ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
         {[
           { label: 'Total User', value: stats.total, icon: '👥', color: 'var(--accent)' },
           { label: 'Aktif', value: stats.aktif, icon: '✅', color: '#10b981' },
           { label: 'Admin', value: stats.admin, icon: '🔑', color: '#a855f7' },
         ].map(s => (
           <div key={s.label} style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
-            padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+            background: 'var(--surface)', border: `1px solid ${s.color}40`, borderRadius: 14,
+            padding: '15px 18px', display: 'flex', alignItems: 'center', gap: 12,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
           }}>
             <div style={{ fontSize: 22 }}>{s.icon}</div>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{s.label}</div>
             </div>
           </div>
@@ -561,8 +601,9 @@ export default function UserPage() {
 
       {/* ── Filter bar ─────────────────────────────────────────────────── */}
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
-        padding: '14px 16px', marginBottom: 16,
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+        padding: '17px 20px',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
         display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
       }}>
         {/* Search */}
@@ -621,24 +662,35 @@ export default function UserPage() {
           </button>
         )}
 
-        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)', whiteSpace: 'nowrap' }}>
+        <div style={{
+          marginLeft: 'auto',
+          fontSize: 11,
+          color: 'var(--accent)',
+          whiteSpace: 'nowrap',
+          background: 'var(--accent-bg)',
+          border: '1px solid var(--accent-border)',
+          borderRadius: 999,
+          padding: '5px 9px',
+          fontWeight: 700,
+        }}>
           {filtered.length} dari {rows.length} user
         </div>
       </div>
 
       {/* ── Table ──────────────────────────────────────────────────────── */}
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
         overflow: 'hidden',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
             <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+              <tr style={{ background: '#263244', borderBottom: '1px solid var(--border)' }}>
                 {['No', 'Pengguna', 'Email', 'Role', 'Status', 'Dibuat', 'Aksi'].map((h, i) => (
                   <th key={h} style={{
                     padding: '11px 16px', textAlign: i === 0 ? 'center' : 'left',
-                    fontSize: 11, fontWeight: 700, color: 'var(--dim)',
+                    fontSize: 11, fontWeight: 700, color: '#a8b7d0',
                     textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap',
                   }}>
                     {h}
@@ -745,28 +797,30 @@ export default function UserPage() {
                               </svg>
                               Edit
                             </button>
-                            <button
-                              title="Hapus"
-                              onClick={() => setDeleteRow(row)}
-                              style={{
-                                padding: '6px 12px', borderRadius: 7,
-                                border: '1px solid var(--border)', background: 'transparent',
-                                color: 'var(--muted)', fontSize: 11, cursor: 'pointer',
-                                fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 500,
-                                display: 'flex', alignItems: 'center', gap: 5,
-                                transition: 'border-color 0.15s, color 0.15s',
-                              }}
-                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.color = '#ef4444'; }}
-                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)'; }}
-                            >
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                <path d="M10 11v6"/><path d="M14 11v6"/>
-                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                              </svg>
-                              Hapus
-                            </button>
+                            {row.role !== 'admin' && (
+                              <button
+                                title="Hapus"
+                                onClick={() => setDeleteRow(row)}
+                                style={{
+                                  padding: '6px 12px', borderRadius: 7,
+                                  border: '1px solid var(--border)', background: 'transparent',
+                                  color: 'var(--muted)', fontSize: 11, cursor: 'pointer',
+                                  fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 500,
+                                  display: 'flex', alignItems: 'center', gap: 5,
+                                  transition: 'border-color 0.15s, color 0.15s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.color = '#ef4444'; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)'; }}
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <polyline points="3 6 5 6 21 6"/>
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                  <path d="M10 11v6"/><path d="M14 11v6"/>
+                                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                                </svg>
+                                Hapus
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

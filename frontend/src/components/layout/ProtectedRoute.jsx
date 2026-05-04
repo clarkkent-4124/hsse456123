@@ -1,11 +1,9 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-// Redirect to role-specific home if logged in
-function roleHome(role) {
-  if (role === 'admin') return '/admin/dashboard';
-  if (role === 'user')  return '/user/dashboard';
-  return '/dashboard';
+// Redirect to the shared app home if logged in
+function roleHome() {
+  return '/admin/dashboard';
 }
 
 export default function ProtectedRoute({ children, allowedRoles }) {

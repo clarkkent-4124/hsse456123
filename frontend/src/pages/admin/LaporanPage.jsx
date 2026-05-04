@@ -87,27 +87,69 @@ function fmtDate(iso) {
 }
 
 function fmtDateTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleString('id-ID', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: false,
   });
 }
 
+const sameId = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
+
+function Field({ label, required, children }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}{required && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}</label>
+      {children}
+    </div>
+  );
+}
+
 // ── ModalAddLaporan ──────────────────────────────────────────────
-function ModalAddLaporan({ open, onClose, master, onSuccess }) {
+function ModalAddLaporan({ open, onClose, master, onSuccess, laporan }) {
   const BLANK = {
     tanggal: new Date().toISOString().slice(0, 10),
-    id_up3: '', id_ulp: '', id_regu: '', id_lokasi: '', id_vendor: '',
-    uraian_pekerjaan: '', nama_pelaksana: '', jumlah_pekerjaan: '',
-    status_cctv: '', status_apd: '', hasil_monitoring: '',
-    temuan_k3: '', tindak_lanjut: '', keterangan: '',
+    id_up3: '', id_ulp: '', id_regu: '', lokasi: '', id_vendor: '',
+    uraian_pekerjaan: '', nama_pelaksana: '', jumlah_pekerjaan: 1,
+    status_cctv: '', keterangan_cctv: '', status_apd: '', hasil_monitoring: '',
+    temuan_status: '', temuan_k3: '', tindak_lanjut: '', keterangan: '',
   };
   const [form, setForm]     = useState(BLANK);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState('');
+  const isEdit = !!laporan;
+  const lockHasilMonitoring = isEdit && Number(laporan?.has_swa) === 1;
+  const filteredUlp = (master.ulp || []).filter(r => form.id_up3 && sameId(r.id_up3, form.id_up3));
 
-  useEffect(() => { if (open) { setForm(BLANK); setError(''); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+
+    if (laporan) {
+      const temuanTidakAda = laporan.temuan_k3 === 'NULL' && laporan.tindak_lanjut === 'NULL';
+      setForm({
+        tanggal: laporan.tanggal ? String(laporan.tanggal).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        id_up3: laporan.id_up3 || '',
+        id_ulp: laporan.id_ulp || '',
+        id_regu: laporan.id_regu || '',
+        lokasi: laporan.lokasi || laporan.nama_lokasi || '',
+        id_vendor: laporan.id_vendor || '',
+        uraian_pekerjaan: laporan.uraian_pekerjaan || '',
+        nama_pelaksana: laporan.nama_pelaksana || '',
+        jumlah_pekerjaan: laporan.jumlah_pekerjaan || 1,
+        status_cctv: laporan.status_cctv || '',
+        keterangan_cctv: laporan.keterangan_cctv || '',
+        status_apd: laporan.status_apd || '',
+        hasil_monitoring: laporan.hasil_monitoring || '',
+        temuan_status: temuanTidakAda ? 'tidak ada' : (laporan.temuan_k3 || laporan.tindak_lanjut ? 'ada' : ''),
+        temuan_k3: temuanTidakAda ? '' : (laporan.temuan_k3 || ''),
+        tindak_lanjut: temuanTidakAda ? '' : (laporan.tindak_lanjut || ''),
+        keterangan: laporan.keterangan || '',
+      });
+    } else {
+      setForm(BLANK);
+    }
+    setError('');
+  }, [open, laporan]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -117,13 +159,20 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
     setLoading(true);
     try {
       const body = { ...form };
+      if (body.temuan_status === 'tidak ada') {
+        body.temuan_k3 = 'NULL';
+        body.tindak_lanjut = 'NULL';
+      }
+      delete body.temuan_status;
       // Strip empty optional fields
-      ['id_vendor','jumlah_pekerjaan','status_cctv','status_apd',
+      ['id_vendor','jumlah_pekerjaan','status_cctv','keterangan_cctv','status_apd',
        'hasil_monitoring','temuan_k3','tindak_lanjut','keterangan']
         .forEach(k => { if (!body[k]) delete body[k]; });
       if (body.jumlah_pekerjaan) body.jumlah_pekerjaan = parseInt(body.jumlah_pekerjaan);
 
-      const res = await api.createLaporan(body);
+      const res = isEdit
+        ? await api.updateLaporan(laporan.id, body)
+        : await api.createLaporan(body);
       onSuccess(res.data, res.message);
       onClose();
     } catch (err) {
@@ -133,17 +182,10 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
     }
   }
 
-  const Field = ({ label, required, children }) => (
-    <div>
-      <label style={labelStyle}>{label}{required && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}</label>
-      {children}
-    </div>
-  );
-
   const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 };
 
   return (
-    <Modal open={open} onClose={onClose} title="Tambah Laporan Pengawasan" width={660}>
+    <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Laporan Pengawasan' : 'Tambah Laporan Pengawasan'} width={660}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {error && (
@@ -165,20 +207,20 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
                 <input type="date" value={form.tanggal} onChange={e => set('tanggal', e.target.value)}
                   required style={inputStyle} />
               </Field>
-              <Field label="UP3" required>
-                <select value={form.id_up3} onChange={e => set('id_up3', e.target.value)}
+              <Field label="UNIT PELAKSANA" required>
+                <select value={form.id_up3} onChange={e => { set('id_up3', e.target.value); set('id_ulp', ''); }}
                   required style={inputStyle}>
-                  <option value="">-- Pilih UP3 --</option>
+                  <option value="">-- Pilih Unit Pelaksana --</option>
                   {(master.up3 || []).map(r => <option key={r.id} value={r.id}>{r.nama_up3}</option>)}
                 </select>
               </Field>
             </div>
             <div style={grid2}>
-              <Field label="ULP" required>
+              <Field label="ULP">
                 <select value={form.id_ulp} onChange={e => set('id_ulp', e.target.value)}
-                  required style={inputStyle}>
-                  <option value="">-- Pilih ULP --</option>
-                  {(master.ulp || []).map(r => <option key={r.id} value={r.id}>{r.nama_ulp}</option>)}
+                  disabled={!form.id_up3} style={{ ...inputStyle, opacity: form.id_up3 ? 1 : 0.65 }}>
+                  <option value="">{form.id_up3 ? '-- Pilih ULP (opsional) --' : '-- Pilih Unit Pelaksana dulu --'}</option>
+                  {filteredUlp.map(r => <option key={r.id} value={r.id}>{r.nama_ulp}</option>)}
                 </select>
               </Field>
               <Field label="Regu" required>
@@ -191,11 +233,8 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
             </div>
             <div style={grid2}>
               <Field label="Lokasi" required>
-                <select value={form.id_lokasi} onChange={e => set('id_lokasi', e.target.value)}
-                  required style={inputStyle}>
-                  <option value="">-- Pilih Lokasi --</option>
-                  {(master.lokasi || []).map(r => <option key={r.id} value={r.id}>{r.nama_lokasi}</option>)}
-                </select>
+                <input type="text" value={form.lokasi} onChange={e => set('lokasi', e.target.value)}
+                  required placeholder="Masukkan lokasi pekerjaan" style={inputStyle} />
               </Field>
               <Field label="Vendor">
                 <select value={form.id_vendor} onChange={e => set('id_vendor', e.target.value)} style={inputStyle}>
@@ -212,9 +251,9 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
           <div style={sectionHeadStyle}>Pelaksana & Pekerjaan</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={grid2}>
-              <Field label="Nama Pelaksana" required>
+              <Field label="Nama Pelaksana">
                 <input type="text" value={form.nama_pelaksana} onChange={e => set('nama_pelaksana', e.target.value)}
-                  required placeholder="Nama pelaksana pekerjaan" style={inputStyle} />
+                  placeholder="Nama pelaksana pekerjaan" style={inputStyle} />
               </Field>
               <Field label="Jumlah Pekerjaan">
                 <input type="number" min="1" value={form.jumlah_pekerjaan}
@@ -222,9 +261,9 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
                   placeholder="1" style={inputStyle} />
               </Field>
             </div>
-            <Field label="Uraian Pekerjaan" required>
+            <Field label="Uraian Pekerjaan">
               <textarea value={form.uraian_pekerjaan} onChange={e => set('uraian_pekerjaan', e.target.value)}
-                required rows={3} placeholder="Deskripsi pekerjaan yang dilakukan..."
+                rows={3} placeholder="Deskripsi pekerjaan yang dilakukan..."
                 style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
             </Field>
           </div>
@@ -233,7 +272,7 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
         {/* Status K3 */}
         <div>
           <div style={sectionHeadStyle}>Status K3</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 }}>
             <Field label="Status CCTV">
               <select value={form.status_cctv} onChange={e => set('status_cctv', e.target.value)} style={inputStyle}>
                 <option value="">-- Pilih --</option>
@@ -241,15 +280,29 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
                 <option value="tidak ada">Tidak Ada</option>
               </select>
             </Field>
+            <Field label="Keterangan CCTV">
+              <select value={form.keterangan_cctv} onChange={e => set('keterangan_cctv', e.target.value)} style={inputStyle}>
+                <option value="">-- Pilih --</option>
+                <option value="aktif">Aktif</option>
+                <option value="tidak aktif">Tidak Aktif</option>
+                <option value="tidak muncul di Ezviz">Tidak Muncul di Ezviz</option>
+              </select>
+            </Field>
             <Field label="Status APD">
               <select value={form.status_apd} onChange={e => set('status_apd', e.target.value)} style={inputStyle}>
                 <option value="">-- Pilih --</option>
                 <option value="lengkap">Lengkap</option>
                 <option value="tidak lengkap">Tidak Lengkap</option>
+                <option value="tidak termonitor">Tidak Termonitor</option>
               </select>
             </Field>
             <Field label="Hasil Monitoring">
-              <select value={form.hasil_monitoring} onChange={e => set('hasil_monitoring', e.target.value)} style={inputStyle}>
+              <select
+                value={form.hasil_monitoring}
+                onChange={e => set('hasil_monitoring', e.target.value)}
+                disabled={lockHasilMonitoring}
+                style={{ ...inputStyle, opacity: lockHasilMonitoring ? 0.65 : 1 }}
+              >
                 <option value="">-- Pilih --</option>
                 {HASIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -261,16 +314,52 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
         <div>
           <div style={sectionHeadStyle}>Temuan & Tindak Lanjut</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Temuan K3">
-              <textarea value={form.temuan_k3} onChange={e => set('temuan_k3', e.target.value)}
-                rows={2} placeholder="Temuan K3 di lapangan (opsional)"
-                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+            <Field label="Ada Temuan K3?">
+              <select
+                value={form.temuan_status}
+                onChange={e => {
+                  const value = e.target.value;
+                  setForm(f => ({
+                    ...f,
+                    temuan_status: value,
+                    temuan_k3: value === 'tidak ada' ? '' : f.temuan_k3,
+                    tindak_lanjut: value === 'tidak ada' ? '' : f.tindak_lanjut,
+                  }));
+                }}
+                style={inputStyle}
+              >
+                <option value="">-- Pilih --</option>
+                <option value="ada">Ada</option>
+                <option value="tidak ada">Tidak Ada</option>
+              </select>
             </Field>
-            <Field label="Tindak Lanjut">
-              <textarea value={form.tindak_lanjut} onChange={e => set('tindak_lanjut', e.target.value)}
-                rows={2} placeholder="Tindak lanjut yang dilakukan (opsional)"
-                style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
-            </Field>
+            {form.temuan_status === 'ada' && (
+              <>
+                <Field label="Temuan K3">
+                  <textarea value={form.temuan_k3} onChange={e => set('temuan_k3', e.target.value)}
+                    rows={2} placeholder="Temuan K3 di lapangan"
+                    style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+                </Field>
+                <Field label="Tindak Lanjut">
+                  <textarea value={form.tindak_lanjut} onChange={e => set('tindak_lanjut', e.target.value)}
+                    rows={2} placeholder="Tindak lanjut yang dilakukan"
+                    style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+                </Field>
+              </>
+            )}
+            {form.temuan_status === 'tidak ada' && (
+              <div style={{
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.22)',
+                color: 'var(--muted)',
+                fontSize: 12,
+                lineHeight: 1.5,
+              }}>
+                Tidak ada Temuan K3 dan Tindak Lanjut
+              </div>
+            )}
             <Field label="Keterangan">
               <textarea value={form.keterangan} onChange={e => set('keterangan', e.target.value)}
                 rows={2} placeholder="Keterangan tambahan (opsional)"
@@ -305,7 +394,7 @@ function ModalAddLaporan({ open, onClose, master, onSuccess }) {
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
               </svg>
             )}
-            {loading ? 'Menyimpan...' : 'Simpan Laporan'}
+            {loading ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan Laporan')}
           </button>
         </div>
       </form>
@@ -318,14 +407,24 @@ const STATUS_CCTV_CFG = {
   'ada':       { label: 'Ada',       color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   'tidak ada': { label: 'Tidak Ada', color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
 };
+const KETERANGAN_CCTV_CFG = {
+  'aktif':                 { label: 'Aktif',                 color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  'tidak aktif':           { label: 'Tidak Aktif',           color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
+  'tidak muncul di ezviz': { label: 'Tidak Muncul di Ezviz', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+};
 const STATUS_APD_CFG = {
   'lengkap':       { label: 'Lengkap',       color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   'tidak lengkap': { label: 'Tidak Lengkap', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  'tidak termonitor': { label: 'Tidak Termonitor', color: '#8899b4', bg: 'rgba(136,153,180,0.12)' },
 };
 const HASIL_DETAIL_CFG = {
   'aman':             { label: 'Aman',             color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
   'tidak aman':       { label: 'Tidak Aman',       color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
   'tidak termonitor': { label: 'Tidak Termonitor', color: '#8899b4', bg: 'rgba(136,153,180,0.12)' },
+};
+const STATUS_SWA_CFG = {
+  'diberhentikan':              { label: 'Diberhentikan', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  'berjalan setelah perbaikan': { label: 'Berjalan Setelah Perbaikan', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
 };
 
 // ── ModalDetailLaporan ───────────────────────────────────────────
@@ -338,7 +437,7 @@ function ModalDetailLaporan({ open, onClose, laporan }) {
       <span style={labelStyle}>{label}</span>
       <span style={{
         fontSize: 13, color: value ? 'var(--text)' : 'var(--dim)',
-        fontFamily: mono ? 'JetBrains Mono, monospace' : 'inherit',
+        fontFamily: 'inherit',
         lineHeight: 1.5,
       }}>
         {value || '—'}
@@ -378,6 +477,7 @@ function ModalDetailLaporan({ open, onClose, laporan }) {
 
   const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 };
   const grid3 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 };
+  const grid4 = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14 };
 
   return (
     <Modal open={open} onClose={onClose} title={`Detail Laporan`} width={700}>
@@ -395,7 +495,6 @@ function ModalDetailLaporan({ open, onClose, laporan }) {
             </div>
             <span style={{
               fontSize: 14, fontWeight: 700, color: 'var(--accent)',
-              fontFamily: 'JetBrains Mono, monospace',
             }}>
               {laporan.id}
             </span>
@@ -446,8 +545,9 @@ function ModalDetailLaporan({ open, onClose, laporan }) {
 
         {/* ── Status K3 ─── */}
         <Card title="Status K3">
-          <div style={grid3}>
+          <div style={grid4}>
             <BadgeRow label="Status CCTV"     value={laporan.status_cctv}      cfg={STATUS_CCTV_CFG}   />
+            <BadgeRow label="Keterangan CCTV" value={laporan.keterangan_cctv}  cfg={KETERANGAN_CCTV_CFG} />
             <BadgeRow label="Status APD"      value={laporan.status_apd}       cfg={STATUS_APD_CFG}    />
             <BadgeRow label="Hasil Monitoring" value={laporan.hasil_monitoring} cfg={HASIL_DETAIL_CFG}  />
           </div>
@@ -470,6 +570,21 @@ function ModalDetailLaporan({ open, onClose, laporan }) {
               {laporan.temuan_k3     && <Row label="Temuan K3"     value={laporan.temuan_k3}     />}
               {laporan.tindak_lanjut && <Row label="Tindak Lanjut" value={laporan.tindak_lanjut} />}
               {laporan.keterangan    && <Row label="Keterangan"    value={laporan.keterangan}    />}
+            </div>
+          </Card>
+        )}
+
+        {Number(laporan.has_swa) === 1 && (
+          <Card title="SWA">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={grid3}>
+                <Row label="ID SWA" value={laporan.swa_id} />
+                <Row label="Tanggal SWA" value={fmtDateTime(laporan.swa_tanggal)} />
+                <BadgeRow label="Status SWA" value={laporan.status_swa} cfg={STATUS_SWA_CFG} />
+              </div>
+              <Row label="Catatan / Temuan" value={laporan.swa_catatan} />
+              <Row label="Tindakan" value={laporan.swa_tindakan} />
+              {laporan.swa_keterangan && <Row label="Keterangan SWA" value={laporan.swa_keterangan} />}
             </div>
           </Card>
         )}
@@ -531,7 +646,7 @@ function ModalUpdateStatus({ open, onClose, laporan, onSuccess }) {
           padding: '10px 14px', borderRadius: 9,
           background: 'var(--bg)', border: '1px solid var(--border)',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
             {laporan.id}
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
@@ -627,7 +742,7 @@ function ModalUpdateStatus({ open, onClose, laporan, onSuccess }) {
 
 // ── ModalInputSWA ─────────────────────────────────────────────────
 function ModalInputSWA({ open, onClose, laporan, onSuccess }) {
-  const BLANK_SWA = { catatan: '', tindakan: '', status_swa: 'diberhentikan', keterangan: '' };
+  const BLANK_SWA = { catatan: '', tindakan: '', status_swa: '', keterangan: '' };
   const [form,    setForm]    = useState(BLANK_SWA);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
@@ -660,13 +775,6 @@ function ModalInputSWA({ open, onClose, laporan, onSuccess }) {
     }
   }
 
-  const Field = ({ label, required, children }) => (
-    <div>
-      <label style={labelStyle}>{label}{required && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}</label>
-      {children}
-    </div>
-  );
-
   return (
     <Modal open={open} onClose={onClose} title="Input Stop Work Authority (SWA)" width={560}>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -685,7 +793,7 @@ function ModalInputSWA({ open, onClose, laporan, onSuccess }) {
               Hasil Monitoring: Tidak Aman
             </span>
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
             {laporan.id}
           </div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
@@ -717,11 +825,11 @@ function ModalInputSWA({ open, onClose, laporan, onSuccess }) {
             style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
         </Field>
 
-        <Field label="Status SWA">
-          <select value={form.status_swa} onChange={e => set('status_swa', e.target.value)} style={inputStyle}>
+        <Field label="Status SWA" required>
+          <select value={form.status_swa} onChange={e => set('status_swa', e.target.value)} required style={inputStyle}>
+            <option value="">-- Pilih --</option>
+            <option value="berjalan setelah perbaikan">Berjalan Setelah Perbaikan</option>
             <option value="diberhentikan">Diberhentikan</option>
-            <option value="dilanjutkan">Dilanjutkan</option>
-            <option value="diselesaikan">Diselesaikan</option>
           </select>
         </Field>
 
@@ -769,14 +877,15 @@ const FILTER_BLANK = {
   id_up3: '', id_ulp: '',
   status_pekerjaan: '', hasil_monitoring: '',
 };
+const PAGE_LIMIT = 15;
 
 export default function LaporanPage() {
   // Master data
-  const [master, setMaster] = useState({ up3: [], ulp: [], regu: [], lokasi: [], vendor: [] });
+  const [master, setMaster] = useState({ up3: [], ulp: [], regu: [], vendor: [] });
 
   // Table data
   const [rows,       setRows]       = useState([]);
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
   const [loading,    setLoading]    = useState(true);
 
   // Filters: draft (live form) vs applied (triggers fetch)
@@ -786,6 +895,7 @@ export default function LaporanPage() {
 
   // Modals
   const [modalAdd,    setModalAdd]    = useState(false);
+  const [editRow,     setEditRow]     = useState(null);
   const [detailRow,   setDetailRow]   = useState(null);
   const [statusRow,   setStatusRow]   = useState(null);
   const [swaRow,      setSwaRow]      = useState(null);
@@ -803,13 +913,12 @@ export default function LaporanPage() {
   // Load master data once
   useEffect(() => {
     Promise.allSettled([
-      api.getUP3(), api.getULP(), api.getRegu(), api.getLokasi(), api.getVendor(),
-    ]).then(([up3Res, ulpRes, reguRes, lokasiRes, vendorRes]) => {
+      api.getUP3(), api.getULP(), api.getRegu(), api.getVendor(),
+    ]).then(([up3Res, ulpRes, reguRes, vendorRes]) => {
       setMaster({
         up3:    up3Res.status    === 'fulfilled' ? (up3Res.value.data    || []) : [],
         ulp:    ulpRes.status    === 'fulfilled' ? (ulpRes.value.data    || []) : [],
         regu:   reguRes.status   === 'fulfilled' ? (reguRes.value.data   || []) : [],
-        lokasi: lokasiRes.status === 'fulfilled' ? (lokasiRes.value.data || []) : [],
         vendor: vendorRes.status === 'fulfilled' ? (vendorRes.value.data || []) : [],
       });
     });
@@ -819,7 +928,7 @@ export default function LaporanPage() {
   const fetchLaporan = useCallback(async (filter, page) => {
     setLoading(true);
     try {
-      const params = { page, limit: 20 };
+      const params = { page, limit: PAGE_LIMIT };
       if (filter.tanggal_dari)    params.tanggal_dari    = filter.tanggal_dari;
       if (filter.tanggal_sampai)  params.tanggal_sampai  = filter.tanggal_sampai;
       if (filter.id_up3)          params.id_up3          = filter.id_up3;
@@ -829,7 +938,7 @@ export default function LaporanPage() {
 
       const res = await api.getLaporan(params);
       setRows(res.data || []);
-      setPagination(res.pagination || { total: 0, page: 1, limit: 20, totalPages: 1 });
+      setPagination(res.pagination || { total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
     } catch {
       setRows([]);
     } finally {
@@ -862,14 +971,22 @@ export default function LaporanPage() {
     setRows(prev => prev.map(r => r.id === updatedRow.id ? { ...r, ...updatedRow } : r));
   }
 
+  function handleEditSuccess(updatedRow, message) {
+    showToast(message || 'Laporan berhasil diperbarui.');
+    setRows(prev => prev.map(r => r.id === updatedRow.id ? { ...r, ...updatedRow } : r));
+  }
+
   function handleSWASuccess(swaData, message) {
     showToast(message || 'SWA berhasil dibuat.');
+    setRows(prev => prev.map(r => (
+      r.id === swaData.id_laporan_pengawasan ? { ...r, has_swa: 1 } : r
+    )));
   }
 
   const setDraft = (k, v) => setDraftFilter(f => ({ ...f, [k]: v }));
 
   const hasFilter = Object.values(appliedFilter).some(v => v !== '');
-
+  const filteredFilterUlp = master.ulp.filter(r => draftFilter.id_up3 && sameId(r.id_up3, draftFilter.id_up3));
   // ── Icon helpers ─────────────────────────────────────────────
   const IconDetail = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -886,9 +1003,9 @@ export default function LaporanPage() {
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 999,
           padding: '12px 18px', borderRadius: 10,
-          background: toast.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-          border: `1px solid ${toast.type === 'success' ? '#10b981' : '#ef4444'}`,
-          color: toast.type === 'success' ? '#10b981' : '#ef4444',
+          background: toast.type === 'success' ? '#10b981' : 'rgba(239,68,68,0.15)',
+          border: `1px solid ${toast.type === 'success' ? '#059669' : '#ef4444'}`,
+          color: toast.type === 'success' ? '#fff' : '#ef4444',
           fontSize: 13, fontWeight: 500,
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           animation: 'fade-in 0.2s ease',
@@ -899,45 +1016,76 @@ export default function LaporanPage() {
       )}
 
       {/* ── Page header ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-            Laporan Pengawasan
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            {hasFilter
-              ? `${pagination.total} laporan ditemukan (filter aktif)`
-              : `Total ${pagination.total} laporan`}
-          </p>
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        padding: '18px 20px',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
+      }}>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(90deg, rgba(16,185,129,0.08), transparent 48%, rgba(239,68,68,0.06))',
+          pointerEvents: 'none',
+        }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 360px', minWidth: 260 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: 'var(--accent-bg)',
+                border: '1px solid var(--accent-border)',
+                color: 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+                  <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                  <rect x="9" y="3" width="6" height="4" rx="1" />
+                  <polyline points="9 14 11 16 15 12" />
+                </svg>
+              </div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                Laporan Pengawasan
+              </h1>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '5px 0 0', maxWidth: 560, lineHeight: 1.5 }}>
+              Kelola laporan K3 lapangan, update status pekerjaan, dan tindak lanjuti temuan tidak aman.
+            </p>
+          </div>
+          <button
+            onClick={() => setModalAdd(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '10px 18px', borderRadius: 9,
+              background: 'linear-gradient(135deg, var(--accent), #3b82f6)', border: 'none',
+              color: '#fff', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+              boxShadow: '0 10px 24px rgba(34,211,238,0.18)',
+              flexShrink: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Tambah Laporan
+          </button>
         </div>
-        <button
-          onClick={() => setModalAdd(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '9px 18px', borderRadius: 9,
-            background: 'var(--accent)', border: 'none',
-            color: '#fff', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Tambah Laporan
-        </button>
-      </div>
+      </section>
 
       {/* ── Filter bar ────────────────────────────────────────── */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 12, padding: '16px 18px',
+        borderRadius: 14, padding: '17px 20px',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
       }}>
-        <div style={{
-          fontSize: 11, fontWeight: 700, color: 'var(--dim)',
-          textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14,
-        }}>
-          Filter
-        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
 
           {/* Tanggal Dari */}
@@ -956,12 +1104,12 @@ export default function LaporanPage() {
               style={{ ...inputStyle, width: 140 }} />
           </div>
 
-          {/* UP3 */}
+          {/* Unit Pelaksana */}
           <div style={{ minWidth: 160 }}>
-            <label style={labelStyle}>UP3</label>
-            <select value={draftFilter.id_up3} onChange={e => setDraft('id_up3', e.target.value)}
+            <label style={labelStyle}>UNIT PELAKSANA</label>
+            <select value={draftFilter.id_up3} onChange={e => setDraftFilter(f => ({ ...f, id_up3: e.target.value, id_ulp: '' }))}
               style={{ ...inputStyle, width: 160 }}>
-              <option value="">Semua UP3</option>
+              <option value="">Semua Unit</option>
               {master.up3.map(r => <option key={r.id} value={r.id}>{r.nama_up3}</option>)}
             </select>
           </div>
@@ -970,9 +1118,10 @@ export default function LaporanPage() {
           <div style={{ minWidth: 160 }}>
             <label style={labelStyle}>ULP</label>
             <select value={draftFilter.id_ulp} onChange={e => setDraft('id_ulp', e.target.value)}
-              style={{ ...inputStyle, width: 160 }}>
-              <option value="">Semua ULP</option>
-              {master.ulp.map(r => <option key={r.id} value={r.id}>{r.nama_ulp}</option>)}
+              disabled={!draftFilter.id_up3}
+              style={{ ...inputStyle, width: 160, opacity: draftFilter.id_up3 ? 1 : 0.65 }}>
+              <option value="">{draftFilter.id_up3 ? 'Semua ULP' : 'Pilih Unit dulu'}</option>
+              {filteredFilterUlp.map(r => <option key={r.id} value={r.id}>{r.nama_ulp}</option>)}
             </select>
           </div>
 
@@ -1002,18 +1151,23 @@ export default function LaporanPage() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginLeft: 'auto' }}>
             {hasFilter && (
               <button onClick={resetFilter} style={{
-                padding: '8px 14px', borderRadius: 7,
+                padding: '8px 14px', borderRadius: 8,
                 background: 'transparent', border: '1px solid var(--border)',
                 color: 'var(--muted)', fontSize: 12, fontWeight: 500,
                 cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+                display: 'flex', alignItems: 'center', gap: 6,
               }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                  <path d="M3 12a9 9 0 1 0 3-6.7"/>
+                  <polyline points="3 3 3 9 9 9"/>
+                </svg>
                 Reset
               </button>
             )}
             <button onClick={applyFilter} style={{
-              padding: '8px 16px', borderRadius: 7,
-              background: 'var(--accent)', border: 'none',
-              color: '#fff', fontSize: 12, fontWeight: 600,
+              padding: '10px 22px', borderRadius: 9,
+              background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+              color: 'var(--accent)', fontSize: 13, fontWeight: 800,
               cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
@@ -1029,18 +1183,19 @@ export default function LaporanPage() {
       {/* ── Data table ────────────────────────────────────────── */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 12, overflow: 'hidden',
+        borderRadius: 14, overflow: 'hidden',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'var(--bg)' }}>
-                {['No', 'ID / Tanggal', 'Lokasi', 'Uraian Pekerjaan', 'Status', 'Hasil Monitoring', 'Aksi'].map(h => (
+              <tr style={{ background: '#263244' }}>
+                {['No', 'ID / Tanggal', 'Lokasi', 'Uraian Pekerjaan', 'Tim', 'Status', 'Aksi'].map(h => (
                   <th key={h} style={{
-                    padding: '10px 14px',
+                    padding: '11px 16px',
                     fontSize: 10, fontWeight: 700,
-                    color: 'var(--dim)',
-                    textAlign: 'left',
+                    color: '#a8b7d0',
+                    textAlign: 'center',
                     textTransform: 'uppercase',
                     letterSpacing: '0.6px',
                     whiteSpace: 'nowrap',
@@ -1055,8 +1210,8 @@ export default function LaporanPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                    {[40, 120, 120, 200, 80, 90, 80].map((w, j) => (
-                      <td key={j} style={{ padding: '14px' }}>
+                    {[40, 120, 120, 200, 150, 80, 80].map((w, j) => (
+                      <td key={j} style={{ padding: '15px 16px' }}>
                         <div className="skeleton" style={{ width: w, height: 12, borderRadius: 4 }} />
                       </td>
                     ))}
@@ -1083,19 +1238,19 @@ export default function LaporanPage() {
                     borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
                     transition: 'background 0.1s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   {/* No */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontSize: 11, color: 'var(--dim)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      #{row.no_urut || '—'}
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 700 }}>
+                      {idx + 1}
                     </span>
                   </td>
 
                   {/* ID / Tanggal */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
                       {row.id}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
@@ -1104,13 +1259,13 @@ export default function LaporanPage() {
                   </td>
 
                   {/* Lokasi */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                     <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{row.nama_up3 || '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{row.nama_ulp || ''}</div>
                   </td>
 
                   {/* Uraian */}
-                  <td style={{ padding: '12px 14px', maxWidth: 260 }}>
+                  <td style={{ padding: '14px 16px', maxWidth: 280 }}>
                     <div style={{ fontSize: 12, color: 'var(--text)' }}>{truncate(row.uraian_pekerjaan)}</div>
                     {row.nama_pelaksana && (
                       <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
@@ -1119,35 +1274,71 @@ export default function LaporanPage() {
                     )}
                   </td>
 
-                  {/* Status */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    <Badge value={row.status_pekerjaan} cfg={STATUS_PEKERJAAN_CFG} />
+                  {/* Tim */}
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>
+                      {row.nama_regu || '—'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
+                      {row.nama_vendor || 'Vendor belum dipilih'}
+                    </div>
                   </td>
 
-                  {/* Hasil Monitoring */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    {row.hasil_monitoring
-                      ? <Badge value={row.hasil_monitoring} cfg={HASIL_CFG} />
-                      : <span style={{ fontSize: 11, color: 'var(--dim)' }}>—</span>
-                    }
+                  {/* Status */}
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                      <Badge value={row.status_pekerjaan} cfg={STATUS_PEKERJAAN_CFG} />
+                      {Number(row.has_swa) === 1 && (
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: '#ef4444',
+                          background: 'rgba(239,68,68,0.12)',
+                          border: '1px solid rgba(239,68,68,0.35)',
+                          borderRadius: 5,
+                          padding: '2px 7px',
+                          letterSpacing: '0.3px',
+                        }}>
+                          SWA
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Aksi */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                       {/* Detail */}
                       <button
                         onClick={() => setDetailRow(row)}
                         title="Lihat Detail"
                         style={{
-                          padding: '5px 10px', borderRadius: 6,
+                          width: 34, height: 34, padding: 0, borderRadius: 9,
                           background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
-                          color: 'var(--accent)', fontSize: 11, fontWeight: 600,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                          color: 'var(--accent)',
+                          cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         }}
                       >
-                        <IconDetail /> Detail
+                        <IconDetail />
                       </button>
+
+                      {row.status_pekerjaan !== 'selesai' && (
+                        <button
+                          onClick={() => setEditRow(row)}
+                          title="Edit Laporan"
+                          style={{
+                            width: 34, height: 34, padding: 0, borderRadius: 9,
+                            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                            color: '#f59e0b',
+                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                          </svg>
+                        </button>
+                      )}
 
                       {/* Update Status */}
                       {row.status_pekerjaan !== 'selesai' && (
@@ -1155,36 +1346,34 @@ export default function LaporanPage() {
                           onClick={() => setStatusRow(row)}
                           title="Update Status"
                           style={{
-                            padding: '5px 10px', borderRadius: 6,
+                            width: 34, height: 34, padding: 0, borderRadius: 9,
                             background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)',
-                            color: '#3b82f6', fontSize: 11, fontWeight: 600,
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                            color: '#3b82f6',
+                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                           }}
                         >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <polyline points="9 11 12 14 22 4"/>
                             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                           </svg>
-                          Status
                         </button>
                       )}
 
-                      {/* Input SWA — hanya jika hasil_monitoring = tidak aman */}
-                      {row.hasil_monitoring === 'tidak aman' && (
+                      {/* Input SWA hanya jika belum pernah dibuat */}
+                      {row.hasil_monitoring === 'tidak aman' && !Number(row.has_swa) && (
                         <button
                           onClick={() => setSwaRow(row)}
                           title="Input SWA"
                           style={{
-                            padding: '5px 10px', borderRadius: 6,
+                            width: 34, height: 34, padding: 0, borderRadius: 9,
                             background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                            color: '#ef4444', fontSize: 11, fontWeight: 600,
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                            color: '#ef4444',
+                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                           }}
                         >
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                           </svg>
-                          SWA
                         </button>
                       )}
                     </div>
@@ -1236,6 +1425,18 @@ export default function LaporanPage() {
             </div>
           </div>
         )}
+        {!loading && (
+          <div style={{
+            padding: pagination.totalPages > 1 ? '0 16px 12px' : '10px 16px 12px',
+            borderTop: pagination.totalPages > 1 ? 'none' : '1px solid var(--border)',
+            textAlign: 'right',
+            fontSize: 10,
+            color: 'var(--dim)',
+            fontWeight: 600,
+          }}>
+            {pagination.total} {hasFilter ? 'hasil filter' : 'total laporan'}
+          </div>
+        )}
       </div>
 
       {/* ── Modals ────────────────────────────────────────────── */}
@@ -1244,6 +1445,13 @@ export default function LaporanPage() {
         onClose={() => setModalAdd(false)}
         master={master}
         onSuccess={handleAddSuccess}
+      />
+      <ModalAddLaporan
+        open={!!editRow}
+        onClose={() => setEditRow(null)}
+        master={master}
+        laporan={editRow}
+        onSuccess={handleEditSuccess}
       />
       <ModalDetailLaporan
         open={!!detailRow}

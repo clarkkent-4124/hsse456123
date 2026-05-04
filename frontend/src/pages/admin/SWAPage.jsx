@@ -4,9 +4,8 @@ import Modal from '../../components/ui/Modal';
 
 // ── Constants ─────────────────────────────────────────────────────
 const STATUS_SWA_CFG = {
-  'diberhentikan': { label: 'Diberhentikan', color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
-  'dilanjutkan':   { label: 'Dilanjutkan',   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-  'diselesaikan':  { label: 'Diselesaikan',  color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  'diberhentikan':                 { label: 'Diberhentikan', color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
+  'berjalan setelah perbaikan':    { label: 'Berjalan Setelah Perbaikan', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
 };
 
 const STATUS_PEKERJAAN_CFG = {
@@ -92,7 +91,7 @@ function ModalDetailSWA({ open, onClose, swa }) {
       <span style={{
         fontSize: 13,
         color: accent ? 'var(--accent)' : value ? 'var(--text)' : 'var(--dim)',
-        fontFamily: mono ? 'JetBrains Mono, monospace' : 'inherit',
+        fontFamily: 'inherit',
         lineHeight: 1.5,
       }}>
         {value || '—'}
@@ -117,7 +116,7 @@ function ModalDetailSWA({ open, onClose, swa }) {
           </svg>
           <span style={{
             fontSize: 13, fontWeight: 700, color: '#ef4444',
-            fontFamily: 'JetBrains Mono, monospace', flex: 1,
+            flex: 1,
           }}>
             {swa.id}
           </span>
@@ -165,6 +164,10 @@ function ModalDetailSWA({ open, onClose, swa }) {
             {swa.nama_up3 && (
               <Row label="UP3" value={swa.nama_up3} />
             )}
+            <div style={grid2}>
+              <Row label="Tim" value={swa.nama_regu} />
+              <Row label="Vendor" value={swa.nama_vendor} />
+            </div>
           </div>
         </div>
 
@@ -205,11 +208,14 @@ function ModalDetailSWA({ open, onClose, swa }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────
-const FILTER_BLANK = { tanggal_dari: '', tanggal_sampai: '', id_laporan: '' };
+const FILTER_BLANK = { tanggal_dari: '', tanggal_sampai: '', id_laporan: '', lokasi: '', id_up3: '', id_ulp: '' };
+const PAGE_LIMIT = 15;
+const sameId = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
 
 export default function SWAPage() {
+  const [master, setMaster] = useState({ up3: [], ulp: [] });
   const [rows,       setRows]       = useState([]);
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20, totalPages: 1 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
   const [loading,    setLoading]    = useState(true);
 
   const [draftFilter,   setDraftFilter]   = useState(FILTER_BLANK);
@@ -230,14 +236,17 @@ export default function SWAPage() {
   const fetchSWA = useCallback(async (filter, page) => {
     setLoading(true);
     try {
-      const params = { page, limit: 20 };
+      const params = { page, limit: PAGE_LIMIT };
       if (filter.tanggal_dari)  params.tanggal_dari  = filter.tanggal_dari;
       if (filter.tanggal_sampai)params.tanggal_sampai= filter.tanggal_sampai;
       if (filter.id_laporan)    params.id_laporan    = filter.id_laporan.trim();
+      if (filter.lokasi)        params.lokasi        = filter.lokasi.trim();
+      if (filter.id_up3)        params.id_up3        = filter.id_up3;
+      if (filter.id_ulp)        params.id_ulp        = filter.id_ulp;
 
       const res = await api.getSWA(params);
       setRows(res.data || []);
-      setPagination(res.pagination || { total: 0, page: 1, limit: 20, totalPages: 1 });
+      setPagination(res.pagination || { total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
     } catch {
       setRows([]);
     } finally {
@@ -249,6 +258,15 @@ export default function SWAPage() {
     fetchSWA(appliedFilter, currentPage);
   }, [appliedFilter, currentPage, fetchSWA]);
 
+  useEffect(() => {
+    Promise.allSettled([api.getUP3(), api.getULP()]).then(([up3Res, ulpRes]) => {
+      setMaster({
+        up3: up3Res.status === 'fulfilled' ? (up3Res.value.data || []) : [],
+        ulp: ulpRes.status === 'fulfilled' ? (ulpRes.value.data || []) : [],
+      });
+    });
+  }, []);
+
   const setDraft = (k, v) => setDraftFilter(f => ({ ...f, [k]: v }));
 
   function applyFilter() { setCurrentPage(1); setAppliedFilter({ ...draftFilter }); }
@@ -259,6 +277,7 @@ export default function SWAPage() {
   }
 
   const hasFilter = Object.values(appliedFilter).some(v => v !== '');
+  const filteredFilterUlp = master.ulp.filter(r => draftFilter.id_up3 && sameId(r.id_up3, draftFilter.id_up3));
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -268,9 +287,9 @@ export default function SWAPage() {
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 999,
           padding: '12px 18px', borderRadius: 10,
-          background: toast.type === 'success' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-          border: `1px solid ${toast.type === 'success' ? '#10b981' : '#ef4444'}`,
-          color: toast.type === 'success' ? '#10b981' : '#ef4444',
+          background: toast.type === 'success' ? '#10b981' : 'rgba(239,68,68,0.15)',
+          border: `1px solid ${toast.type === 'success' ? '#059669' : '#ef4444'}`,
+          color: toast.type === 'success' ? '#fff' : '#ef4444',
           fontSize: 13, fontWeight: 500,
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           maxWidth: 360,
@@ -280,44 +299,60 @@ export default function SWAPage() {
       )}
 
       {/* ── Page header ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-            Stop Work Authority
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-            {hasFilter
-              ? `${pagination.total} SWA ditemukan (filter aktif)`
-              : `Total ${pagination.total} SWA`}
-          </p>
-        </div>
-
-        {/* Info chip */}
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        padding: '18px 20px',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
+      }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '8px 14px', borderRadius: 9,
-          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#ef4444' }}>
-            SWA dibuat dari halaman Laporan
-          </span>
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(90deg, rgba(239,68,68,0.07), transparent 52%, rgba(168,85,247,0.06))',
+          pointerEvents: 'none',
+        }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 360px', minWidth: 260 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: 'rgba(239,68,68,0.10)',
+                border: '1px solid rgba(239,68,68,0.25)',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                Stop Work Authority
+              </h1>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '5px 0 0', maxWidth: 560, lineHeight: 1.5 }}>
+              Pantau tindakan penghentian pekerjaan dan tindak lanjut dari laporan pengawasan tidak aman.
+            </p>
+          </div>
+
         </div>
-      </div>
+      </section>
 
       {/* ── Filter bar ────────────────────────────────────────── */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 12, padding: '16px 18px',
+        borderRadius: 14, padding: '17px 20px',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
       }}>
-        <div style={{
-          fontSize: 11, fontWeight: 700, color: 'var(--dim)',
-          textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 14,
-        }}>
-          Filter
-        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
 
           <div style={{ minWidth: 140 }}>
@@ -342,23 +377,65 @@ export default function SWAPage() {
               style={{ ...inputStyle, width: 200 }} />
           </div>
 
+          <div style={{ minWidth: 180 }}>
+            <label style={labelStyle}>Lokasi</label>
+            <input type="text" value={draftFilter.lokasi}
+              onChange={e => setDraft('lokasi', e.target.value)}
+              placeholder="Filter lokasi"
+              style={{ ...inputStyle, width: 180 }} />
+          </div>
+
+          <div style={{ minWidth: 170 }}>
+            <label style={labelStyle}>UP3</label>
+            <select
+              value={draftFilter.id_up3}
+              onChange={e => setDraftFilter(f => ({ ...f, id_up3: e.target.value, id_ulp: '' }))}
+              style={{ ...inputStyle, width: 170 }}
+            >
+              <option value="">Semua UP3</option>
+              {master.up3.map(r => <option key={r.id} value={r.id}>{r.nama_up3}</option>)}
+            </select>
+          </div>
+
+          <div style={{ minWidth: 170 }}>
+            <label style={labelStyle}>ULP</label>
+            <select
+              value={draftFilter.id_ulp}
+              onChange={e => setDraft('id_ulp', e.target.value)}
+              disabled={!draftFilter.id_up3}
+              style={{ ...inputStyle, width: 170, opacity: draftFilter.id_up3 ? 1 : 0.65 }}
+            >
+              <option value="">{draftFilter.id_up3 ? 'Semua ULP' : 'Pilih UP3 dulu'}</option>
+              {filteredFilterUlp.map(r => <option key={r.id} value={r.id}>{r.nama_ulp}</option>)}
+            </select>
+          </div>
+
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginLeft: 'auto' }}>
             {hasFilter && (
               <button onClick={resetFilter} style={{
-                padding: '8px 14px', borderRadius: 7,
+                padding: '8px 14px', borderRadius: 8,
                 background: 'transparent', border: '1px solid var(--border)',
                 color: 'var(--muted)', fontSize: 12, fontWeight: 500,
                 cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+                display: 'flex', alignItems: 'center', gap: 6,
               }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                  <path d="M3 12a9 9 0 1 0 3-6.7"/>
+                  <polyline points="3 3 3 9 9 9"/>
+                </svg>
                 Reset
               </button>
             )}
             <button onClick={applyFilter} style={{
-              padding: '8px 16px', borderRadius: 7,
-              background: 'var(--accent)', border: 'none',
-              color: '#fff', fontSize: 12, fontWeight: 600,
+              padding: '10px 22px', borderRadius: 9,
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+              color: '#ef4444', fontSize: 13, fontWeight: 800,
               cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+              display: 'flex', alignItems: 'center', gap: 6,
             }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
               Terapkan
             </button>
           </div>
@@ -368,17 +445,18 @@ export default function SWAPage() {
       {/* ── Data table ────────────────────────────────────────── */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 12, overflow: 'hidden',
+        borderRadius: 14, overflow: 'hidden',
+        boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
       }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: 'var(--bg)' }}>
-                {['No', 'ID SWA / Tanggal', 'Laporan Pengawasan', 'Catatan', 'Tindakan', 'Status SWA', 'Aksi'].map(h => (
+              <tr style={{ background: '#263244' }}>
+                {['No', 'ID SWA / Tanggal', 'Laporan Pengawasan', 'Lokasi', 'Catatan', 'Tindakan', 'Status SWA', 'Aksi'].map(h => (
                   <th key={h} style={{
-                    padding: '10px 14px',
+                    padding: '11px 16px',
                     fontSize: 10, fontWeight: 700,
-                    color: 'var(--dim)', textAlign: 'left',
+                    color: '#a8b7d0', textAlign: 'center',
                     textTransform: 'uppercase', letterSpacing: '0.6px',
                     whiteSpace: 'nowrap',
                     borderBottom: '1px solid var(--border)',
@@ -392,8 +470,8 @@ export default function SWAPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                    {[40, 130, 160, 180, 160, 90, 70].map((w, j) => (
-                      <td key={j} style={{ padding: '14px' }}>
+                    {[40, 130, 160, 140, 180, 160, 90, 70].map((w, j) => (
+                      <td key={j} style={{ padding: '15px 16px' }}>
                         <div className="skeleton" style={{ width: w, height: 12, borderRadius: 4 }} />
                       </td>
                     ))}
@@ -401,7 +479,7 @@ export default function SWAPage() {
                 ))
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '52px 14px', textAlign: 'center' }}>
+                  <td colSpan={8} style={{ padding: '52px 14px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                       <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--border)" strokeWidth="1.5">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -419,19 +497,19 @@ export default function SWAPage() {
                     borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
                     transition: 'background 0.1s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   {/* No */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontSize: 11, color: 'var(--dim)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      #{row.no_urut || '—'}
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 700 }}>
+                      {idx + 1}
                     </span>
                   </td>
 
                   {/* ID / Tanggal */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#ef4444' }}>
                       {row.id}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
@@ -440,8 +518,8 @@ export default function SWAPage() {
                   </td>
 
                   {/* Laporan */}
-                  <td style={{ padding: '12px 14px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <td style={{ padding: '14px 16px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
                       {row.id_laporan_pengawasan}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
@@ -455,32 +533,39 @@ export default function SWAPage() {
                   </td>
 
                   {/* Catatan */}
-                  <td style={{ padding: '12px 14px', maxWidth: 200 }}>
+                  <td style={{ padding: '14px 16px', maxWidth: 180 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text)' }}>
+                      {truncate(row.lokasi, 42)}
+                    </span>
+                  </td>
+
+                  {/* Catatan */}
+                  <td style={{ padding: '14px 16px', maxWidth: 200 }}>
                     <span style={{ fontSize: 12, color: 'var(--text)' }}>
                       {truncate(row.catatan, 50)}
                     </span>
                   </td>
 
                   {/* Tindakan */}
-                  <td style={{ padding: '12px 14px', maxWidth: 200 }}>
+                  <td style={{ padding: '14px 16px', maxWidth: 200 }}>
                     <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                       {truncate(row.tindakan, 50)}
                     </span>
                   </td>
 
                   {/* Status SWA */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                     <Badge value={row.status_swa} cfg={STATUS_SWA_CFG} />
                   </td>
 
                   {/* Aksi */}
-                  <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                     <button
                       onClick={() => setDetailSWA(row)}
                       style={{
-                        padding: '5px 12px', borderRadius: 6,
+                        padding: '6px 12px', borderRadius: 8,
                         background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                        color: '#ef4444', fontSize: 11, fontWeight: 600,
+                        color: '#ef4444', fontSize: 11, fontWeight: 700,
                         cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
                       }}
                     >
@@ -535,6 +620,18 @@ export default function SWAPage() {
                 Next →
               </button>
             </div>
+          </div>
+        )}
+        {!loading && (
+          <div style={{
+            padding: pagination.totalPages > 1 ? '0 16px 12px' : '10px 16px 12px',
+            borderTop: pagination.totalPages > 1 ? 'none' : '1px solid var(--border)',
+            textAlign: 'right',
+            fontSize: 10,
+            color: 'var(--dim)',
+            fontWeight: 600,
+          }}>
+            {pagination.total} {hasFilter ? 'hasil filter' : 'total SWA'}
           </div>
         )}
       </div>

@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, total }) => {
         {d.name}
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace' }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
           {d.value}
         </span>
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>{pct}%</span>
@@ -44,7 +44,8 @@ function SkeletonDonut() {
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px',
+      borderRadius: 14, padding: '20px',
+      boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
     }}>
       <div className="skeleton" style={{ width: 160, height: 14, borderRadius: 4, marginBottom: 20 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -83,7 +84,6 @@ export default function HasilMonitoringDonut({ data, loading }) {
         textAnchor="middle"
         fill="var(--text)"
         fontSize={26} fontWeight={700}
-        fontFamily="JetBrains Mono, monospace"
       >
         {total}
       </text>
@@ -96,14 +96,35 @@ export default function HasilMonitoringDonut({ data, loading }) {
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 12, padding: '20px',
+      borderRadius: 14, padding: '20px',
+      boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
     }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>
           Hasil Monitoring
         </div>
         <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
           Distribusi hasil pengawasan
+        </div>
+        </div>
+        <div style={{
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.22)',
+          color: '#ef4444',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
         </div>
       </div>
 
@@ -119,7 +140,7 @@ export default function HasilMonitoringDonut({ data, loading }) {
           <span style={{ fontSize: 12, color: 'var(--dim)' }}>Belum ada data</span>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           {/* Donut */}
           <div style={{ width: 150, height: 150, flexShrink: 0 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -160,7 +181,6 @@ export default function HasilMonitoringDonut({ data, loading }) {
                   </div>
                   <span style={{
                     fontSize: 16, fontWeight: 700, color: d.color,
-                    fontFamily: 'JetBrains Mono, monospace',
                   }}>
                     {d.value}
                   </span>
