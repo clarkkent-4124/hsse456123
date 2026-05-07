@@ -22,8 +22,22 @@ const COLOR_HEX = {
   'var(--tidak-aman)': '#ef4444',
 };
 
-function formatTanggal(isoStr) {
-  return new Date(isoStr + 'T00:00:00').toLocaleDateString('id-ID', {
+function toDateOnly(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+
+  const raw = String(value).trim();
+  const dateOnly = raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
+  const date = dateOnly ? new Date(`${dateOnly}T00:00:00`) : new Date(raw);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatTanggal(value) {
+  const date = toDateOnly(value);
+  if (!date) return '-';
+
+  return date.toLocaleDateString('id-ID', {
     day: '2-digit', month: 'short',
   });
 }

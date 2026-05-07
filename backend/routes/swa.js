@@ -6,14 +6,14 @@ const allow   = require('../middleware/roleGuard');
 const router = express.Router();
 
 // ── Helper: generate SWA-YYYYMMDD-XXXXX ─────────────────────────
-async function generateSWAId() {
+async function generateSWAId(conn = db) {
   const now     = new Date();
   const y       = now.getFullYear();
   const m       = String(now.getMonth() + 1).padStart(2, '0');
   const d       = String(now.getDate()).padStart(2, '0');
   const prefix  = `SWA-${y}${m}${d}-`;
 
-  const [rows] = await db.query(
+  const [rows] = await conn.query(
     `SELECT id FROM swa WHERE id LIKE ? ORDER BY id DESC LIMIT 1`,
     [`${prefix}%`]
   );
@@ -85,6 +85,8 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 
 // ── POST /api/swa ────────────────────────────────────────────────
 router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
+  let conn;
+  let locked = false;
   try {
     const { id_laporan_pengawasan, catatan, tindakan, status_swa, keterangan } = req.body;
 
@@ -96,15 +98,43 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     if (status_swa && !allowedStatus.includes(status_swa))
       return res.status(400).json({ success: false, message: 'Status SWA tidak valid.' });
 
-    const [existingRows] = await db.query(
+    conn = await db.getConnection();
+    const [[lockRow]] = await conn.query("SELECT GET_LOCK('swa_create', 10) AS locked");
+    if (lockRow.locked !== 1) {
+      return res.status(503).json({ success: false, message: 'Sistem sedang sibuk membuat SWA. Coba lagi sebentar.' });
+    }
+    locked = true;
+
+    await conn.beginTransaction();
+
+    const [laporanRows] = await conn.query(
+      'SELECT id, status_pekerjaan, hasil_monitoring FROM laporan_pengawasan WHERE id = ? FOR UPDATE',
+      [id_laporan_pengawasan]
+    );
+    if (laporanRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Laporan pengawasan tidak ditemukan.' });
+    }
+    if (laporanRows[0].status_pekerjaan === 'selesai') {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: 'Laporan selesai tidak dapat dibuatkan SWA.' });
+    }
+    if (laporanRows[0].hasil_monitoring !== 'tidak aman') {
+      await conn.rollback();
+      return res.status(400).json({ success: false, message: 'SWA hanya dapat dibuat untuk laporan dengan hasil monitoring tidak aman.' });
+    }
+
+    const [existingRows] = await conn.query(
       'SELECT id FROM swa WHERE id_laporan_pengawasan = ? LIMIT 1',
       [id_laporan_pengawasan]
     );
-    if (existingRows.length > 0)
+    if (existingRows.length > 0) {
+      await conn.rollback();
       return res.status(400).json({ success: false, message: 'SWA untuk laporan ini sudah pernah dibuat.' });
+    }
 
-    const id = await generateSWAId();
-    const [[noUrutRow]] = await db.query('SELECT COALESCE(MAX(no_urut), 0) + 1 AS nxt FROM swa');
+    const id = await generateSWAId(conn);
+    const [[noUrutRow]] = await conn.query('SELECT COALESCE(MAX(no_urut), 0) + 1 AS nxt FROM swa');
     const no_urut = noUrutRow.nxt;
 
     const data = {
@@ -119,14 +149,16 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     };
     if (keterangan) data.keterangan = keterangan;
 
-    await db.query('INSERT INTO swa SET ?', [data]);
+    await conn.query('INSERT INTO swa SET ?', [data]);
 
-    const [rows] = await db.query(`
+    const [rows] = await conn.query(`
       SELECT s.*, lp.tanggal AS tanggal_laporan, lp.uraian_pekerjaan, lp.hasil_monitoring
       FROM swa s
       LEFT JOIN laporan_pengawasan lp ON s.id_laporan_pengawasan = lp.id
       WHERE s.id = ?
     `, [id]);
+
+    await conn.commit();
 
     return res.status(201).json({
       success: true,
@@ -134,7 +166,13 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
       message: `SWA ${id} berhasil dibuat.`,
     });
   } catch (err) {
+    if (conn) await conn.rollback().catch(() => {});
     return res.status(500).json({ success: false, message: err.message });
+  } finally {
+    if (conn) {
+      if (locked) await conn.query("SELECT RELEASE_LOCK('swa_create')").catch(() => {});
+      conn.release();
+    }
   }
 });
 
@@ -170,6 +208,19 @@ router.put('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 
     const [rows] = await db.query('SELECT * FROM swa WHERE id = ?', [req.params.id]);
     return res.json({ success: true, data: rows[0], message: 'SWA berhasil diperbarui.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/swa/:id
+router.delete('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
+  try {
+    const [result] = await db.query('DELETE FROM swa WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0)
+      return res.status(404).json({ success: false, message: 'SWA tidak ditemukan.' });
+
+    return res.json({ success: true, message: 'SWA berhasil dihapus.' });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

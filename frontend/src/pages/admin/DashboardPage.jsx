@@ -60,6 +60,23 @@ export default function AdminDashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
 
+  const fetchAllLaporan = useCallback(async () => {
+    const limit = 200;
+    const first = await api.getLaporan({ limit, page: 1 });
+    const rows = first.data || [];
+    const totalPages = first.pagination?.totalPages || 1;
+
+    if (totalPages <= 1) return rows;
+
+    const rest = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, idx) =>
+        api.getLaporan({ limit, page: idx + 2 })
+      )
+    );
+
+    return rows.concat(...rest.map(res => res.data || []));
+  }, []);
+
   const fetchAll = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -73,7 +90,7 @@ export default function AdminDashboardPage() {
       const [sumRes, bkRes, recentRes] = await Promise.allSettled([
         api.getDashboardSummary(),
         api.getDashboardBreakdown(),
-        api.getLaporan({ limit: 1000, page: 1 }),
+        fetchAllLaporan(),
       ]);
 
       if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data);
@@ -87,7 +104,7 @@ export default function AdminDashboardPage() {
       setLoadingRecent(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchAllLaporan]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

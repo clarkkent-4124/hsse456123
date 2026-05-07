@@ -6,7 +6,7 @@ const allow   = require('../middleware/roleGuard');
 const router = express.Router();
 
 // ── Helper: generate LP-YYYYMMDD-XXXXX ──────────────────────────
-async function generateLaporanId() {
+async function generateLaporanId(conn = db) {
   const now     = new Date();
   const y       = now.getFullYear();
   const m       = String(now.getMonth() + 1).padStart(2, '0');
@@ -14,7 +14,7 @@ async function generateLaporanId() {
   const dateStr = `${y}${m}${d}`;
   const prefix  = `LP-${dateStr}-`;
 
-  const [rows] = await db.query(
+  const [rows] = await conn.query(
     `SELECT id FROM laporan_pengawasan WHERE id LIKE ? ORDER BY id DESC LIMIT 1`,
     [`${prefix}%`]
   );
@@ -25,8 +25,8 @@ async function generateLaporanId() {
 }
 
 // ── Helper: next no_urut untuk laporan ──────────────────────────
-async function nextNoUrut() {
-  const [[row]] = await db.query('SELECT COALESCE(MAX(no_urut), 0) + 1 AS next_val FROM laporan_pengawasan');
+async function nextNoUrut(conn = db) {
+  const [[row]] = await conn.query('SELECT COALESCE(MAX(no_urut), 0) + 1 AS next_val FROM laporan_pengawasan');
   return row.next_val;
 }
 
@@ -111,6 +111,8 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 
 // ── POST /api/laporan ────────────────────────────────────────────
 router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
+  let conn;
+  let locked = false;
   try {
     const {
       tanggal, id_up3, id_ulp, id_regu, lokasi, nama_lokasi, id_vendor,
@@ -130,9 +132,18 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     if (missing.length > 0)
       return res.status(400).json({ success: false, message: `Field wajib tidak lengkap: ${missing.join(', ')}.` });
 
+    conn = await db.getConnection();
+    const [[lockRow]] = await conn.query("SELECT GET_LOCK('laporan_pengawasan_create', 10) AS locked");
+    if (lockRow.locked !== 1) {
+      return res.status(503).json({ success: false, message: 'Sistem sedang sibuk membuat laporan. Coba lagi sebentar.' });
+    }
+    locked = true;
+
+    await conn.beginTransaction();
+
     const [id, no_urut] = await Promise.all([
-      generateLaporanId(),
-      nextNoUrut(),
+      generateLaporanId(conn),
+      nextNoUrut(conn),
     ]);
 
     const data = {
@@ -155,16 +166,24 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     if (tindak_lanjut)    data.tindak_lanjut    = tindak_lanjut;
     if (keterangan)       data.keterangan       = keterangan;
 
-    await db.query('INSERT INTO laporan_pengawasan SET ?', [data]);
+    await conn.query('INSERT INTO laporan_pengawasan SET ?', [data]);
 
-    const [rows] = await db.query(`${BASE_SELECT} WHERE lp.id = ?`, [id]);
+    const [rows] = await conn.query(`${BASE_SELECT} WHERE lp.id = ?`, [id]);
+    await conn.commit();
+
     return res.status(201).json({
       success: true,
       data: rows[0],
       message: `Laporan ${id} berhasil dibuat.`,
     });
   } catch (err) {
+    if (conn) await conn.rollback().catch(() => {});
     return res.status(500).json({ success: false, message: err.message });
+  } finally {
+    if (conn) {
+      if (locked) await conn.query("SELECT RELEASE_LOCK('laporan_pengawasan_create')").catch(() => {});
+      conn.release();
+    }
   }
 });
 
@@ -257,6 +276,12 @@ router.patch('/:id/status', auth, allow('admin', 'user', 'viewer'), async (req, 
     if (!allowed.includes(status_pekerjaan))
       return res.status(400).json({ success: false, message: `Status tidak valid. Harus: ${allowed.join(', ')}.` });
 
+    const [existingRows] = await db.query('SELECT status_pekerjaan FROM laporan_pengawasan WHERE id = ?', [id]);
+    if (existingRows.length === 0)
+      return res.status(404).json({ success: false, message: 'Laporan tidak ditemukan.' });
+    if (existingRows[0].status_pekerjaan === 'selesai')
+      return res.status(400).json({ success: false, message: 'Status selesai sudah terkunci dan tidak dapat diubah.' });
+
     const now = new Date();
     const updateData = {
       status_pekerjaan,
@@ -271,9 +296,6 @@ router.patch('/:id/status', auth, allow('admin', 'user', 'viewer'), async (req, 
       'UPDATE laporan_pengawasan SET ? WHERE id = ?',
       [updateData, id]
     );
-    if (result.affectedRows === 0)
-      return res.status(404).json({ success: false, message: 'Laporan tidak ditemukan.' });
-
     const [rows] = await db.query(`${BASE_SELECT} WHERE lp.id = ?`, [id]);
     return res.json({
       success: true,

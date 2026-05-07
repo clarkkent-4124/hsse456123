@@ -57,6 +57,7 @@ export const api = {
   createSWA:   (body)        => http.post('/swa', body),
   getSWAById:  (id)          => http.get(`/swa/${id}`),
   updateSWA:   (id, body)    => http.put(`/swa/${id}`, body),
+  deleteSWA:   (id)          => http.delete(`/swa/${id}`),
 
   // ── Dashboard ──────────────────────────────────────────────
   getDashboardSummary:   () => http.get('/dashboard/summary'),

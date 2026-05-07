@@ -995,6 +995,21 @@ export default function LaporanPage() {
     </svg>
   );
 
+  const actionButtonStyle = (color, disabled = false) => ({
+    width: 34,
+    height: 34,
+    padding: 0,
+    borderRadius: 9,
+    background: disabled ? 'transparent' : `${color}1A`,
+    border: disabled ? '1px solid var(--border)' : `1px solid ${color}4D`,
+    color: disabled ? 'var(--dim)' : color,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  });
+
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -1195,7 +1210,7 @@ export default function LaporanPage() {
                     padding: '11px 16px',
                     fontSize: 10, fontWeight: 700,
                     color: '#a8b7d0',
-                    textAlign: 'center',
+                    textAlign: ['Status', 'Aksi'].includes(h) ? 'left' : 'center',
                     textTransform: 'uppercase',
                     letterSpacing: '0.6px',
                     whiteSpace: 'nowrap',
@@ -1259,9 +1274,10 @@ export default function LaporanPage() {
                   </td>
 
                   {/* Lokasi */}
-                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                    <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{row.nama_up3 || '—'}</div>
-                    <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{row.nama_ulp || ''}</div>
+                  <td style={{ padding: '14px 16px', minWidth: 180 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>{row.lokasi || row.nama_lokasi || 'Lokasi belum diisi'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 3 }}>{row.nama_up3 || 'UP3 belum diisi'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 1 }}>{row.nama_ulp || 'ULP belum dipilih'}</div>
                   </td>
 
                   {/* Uraian */}
@@ -1285,8 +1301,8 @@ export default function LaporanPage() {
                   </td>
 
                   {/* Status */}
-                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-start' }}>
                       <Badge value={row.status_pekerjaan} cfg={STATUS_PEKERJAAN_CFG} />
                       {Number(row.has_swa) === 1 && (
                         <span style={{
@@ -1306,76 +1322,61 @@ export default function LaporanPage() {
                   </td>
 
                   {/* Aksi */}
-                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <td style={{ padding: '14px 16px', whiteSpace: 'nowrap', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-start' }}>
                       {/* Detail */}
                       <button
                         onClick={() => setDetailRow(row)}
                         title="Lihat Detail"
-                        style={{
-                          width: 34, height: 34, padding: 0, borderRadius: 9,
-                          background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
-                          color: 'var(--accent)',
-                          cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        }}
+                        style={actionButtonStyle('#22d3ee')}
                       >
                         <IconDetail />
                       </button>
 
-                      {row.status_pekerjaan !== 'selesai' && (
-                        <button
-                          onClick={() => setEditRow(row)}
-                          title="Edit Laporan"
-                          style={{
-                            width: 34, height: 34, padding: 0, borderRadius: 9,
-                            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
-                            color: '#f59e0b',
-                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M12 20h9"/>
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-                          </svg>
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setEditRow(row)}
+                        disabled={row.status_pekerjaan === 'selesai'}
+                        title={row.status_pekerjaan === 'selesai' ? 'Laporan selesai tidak dapat diedit' : 'Edit Laporan'}
+                        style={actionButtonStyle('#f59e0b', row.status_pekerjaan === 'selesai')}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 20h9"/>
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                        </svg>
+                      </button>
 
                       {/* Update Status */}
-                      {row.status_pekerjaan !== 'selesai' && (
-                        <button
-                          onClick={() => setStatusRow(row)}
-                          title="Update Status"
-                          style={{
-                            width: 34, height: 34, padding: 0, borderRadius: 9,
-                            background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)',
-                            color: '#3b82f6',
-                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <polyline points="9 11 12 14 22 4"/>
-                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                          </svg>
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setStatusRow(row)}
+                        disabled={row.status_pekerjaan === 'selesai'}
+                        title={row.status_pekerjaan === 'selesai' ? 'Status selesai sudah terkunci' : 'Update Status'}
+                        style={actionButtonStyle('#3b82f6', row.status_pekerjaan === 'selesai')}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="9 11 12 14 22 4"/>
+                          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                      </button>
 
                       {/* Input SWA hanya jika belum pernah dibuat */}
-                      {row.hasil_monitoring === 'tidak aman' && !Number(row.has_swa) && (
-                        <button
-                          onClick={() => setSwaRow(row)}
-                          title="Input SWA"
-                          style={{
-                            width: 34, height: 34, padding: 0, borderRadius: 9,
-                            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                            color: '#ef4444',
-                            cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                          </svg>
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setSwaRow(row)}
+                        disabled={row.hasil_monitoring !== 'tidak aman' || Number(row.has_swa) === 1 || row.status_pekerjaan === 'selesai'}
+                        title={
+                          row.status_pekerjaan === 'selesai'
+                            ? 'Laporan selesai tidak dapat dibuat SWA'
+                            : Number(row.has_swa) === 1
+                              ? 'SWA sudah dibuat'
+                              : row.hasil_monitoring !== 'tidak aman'
+                                ? 'SWA hanya untuk hasil monitoring tidak aman'
+                                : 'Input SWA'
+                        }
+                        style={actionButtonStyle('#ef4444', row.hasil_monitoring !== 'tidak aman' || Number(row.has_swa) === 1 || row.status_pekerjaan === 'selesai')}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -246,7 +246,7 @@ export default function AlarmDetail({ initialFilter, onBack, showBackButton = tr
           </div>
         ) : alarms.map((alarm, i) => {
           const s = TYPE_STYLE[alarm.jenis] || TYPE_STYLE.OTHER;
-          const rowNum = (page - 1) * PAGE_SIZE + i + 1;
+          const rowNum = i + 1;
           return (
             <div
               key={alarm.id}

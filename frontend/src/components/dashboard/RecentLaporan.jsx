@@ -242,7 +242,7 @@ export default function RecentLaporan({ data, loading }) {
                 </td>
               </tr>
             ) : pagedRows.map((row, idx) => {
-              const rowNumber = (page - 1) * PAGE_SIZE + idx + 1;
+              const rowNumber = idx + 1;
               return (
               <tr
                 key={row.id}

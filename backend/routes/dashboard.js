@@ -56,7 +56,7 @@ router.get('/chart', auth, allow('admin', 'user', 'viewer'), async (req, res) =>
   try {
     const [rows] = await db.query(`
       SELECT
-        DATE(tanggal)                                                         AS tanggal,
+        DATE_FORMAT(tanggal, '%Y-%m-%d')                                      AS tanggal,
         COUNT(*)                                                              AS total,
         SUM(CASE WHEN status_pekerjaan = 'pending'    THEN 1 ELSE 0 END)    AS pending,
         SUM(CASE WHEN status_pekerjaan = 'berjalan'   THEN 1 ELSE 0 END)    AS berjalan,

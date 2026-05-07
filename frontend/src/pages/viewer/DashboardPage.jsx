@@ -79,7 +79,7 @@ function SummaryCard({ label, value, color, bg, border, icon, loading }) {
 }
 
 // ── Laporan list item ─────────────────────────────────────────────
-function LaporanItem({ row }) {
+function LaporanItem({ row, index }) {
   const isUnsafe = row.hasil_monitoring === 'tidak aman';
 
   return (
@@ -95,7 +95,7 @@ function LaporanItem({ row }) {
           fontSize: 10, fontWeight: 700, color: 'var(--accent)',
           fontFamily: 'JetBrains Mono, monospace',
         }}>
-          #{row.no_urut}
+          #{index + 1}
         </span>
         <span style={{ fontSize: 10, color: 'var(--dim)', flex: 1 }}>
           {fmtDate(row.tanggal)}
@@ -369,7 +369,7 @@ export default function ViewerDashboardPage() {
             </div>
           ) : (
             <>
-              {rows.map(row => <LaporanItem key={row.id} row={row} />)}
+              {rows.map((row, idx) => <LaporanItem key={row.id} row={row} index={idx} />)}
 
               {/* Load more */}
               {hasMore && (

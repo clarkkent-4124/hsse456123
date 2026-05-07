@@ -208,6 +208,177 @@ function ModalDetailSWA({ open, onClose, swa }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────
+function Field({ label, required, children }) {
+  return (
+    <div>
+      <label style={labelStyle}>
+        {label}{required && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ModalEditSWA({ open, onClose, swa, onSuccess }) {
+  const [form, setForm] = useState({ catatan: '', tindakan: '', status_swa: '', keterangan: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open || !swa) return;
+    setForm({
+      catatan: swa.catatan || '',
+      tindakan: swa.tindakan || '',
+      status_swa: swa.status_swa || '',
+      keterangan: swa.keterangan || '',
+    });
+    setError('');
+  }, [open, swa]);
+
+  if (!swa) return null;
+
+  const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await api.updateSWA(swa.id, {
+        catatan: form.catatan,
+        tindakan: form.tindakan,
+        status_swa: form.status_swa,
+        keterangan: form.keterangan || null,
+      });
+      onSuccess(res.data, res.message);
+      onClose();
+    } catch (err) {
+      setError(err?.message || 'Gagal memperbarui SWA.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Edit SWA · ${swa.id}`} width={560}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {error && (
+          <div style={{
+            padding: '10px 12px',
+            borderRadius: 8,
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            color: '#ef4444',
+            fontSize: 12,
+          }}>
+            {error}
+          </div>
+        )}
+        <Field label="Catatan / Temuan" required>
+          <textarea value={form.catatan} onChange={e => set('catatan', e.target.value)} required rows={3}
+            style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+        </Field>
+        <Field label="Tindakan yang Diambil" required>
+          <textarea value={form.tindakan} onChange={e => set('tindakan', e.target.value)} required rows={3}
+            style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+        </Field>
+        <Field label="Status SWA" required>
+          <select value={form.status_swa} onChange={e => set('status_swa', e.target.value)} required style={inputStyle}>
+            <option value="">-- Pilih --</option>
+            <option value="berjalan setelah perbaikan">Berjalan Setelah Perbaikan</option>
+            <option value="diberhentikan">Diberhentikan</option>
+          </select>
+        </Field>
+        <Field label="Keterangan Tambahan">
+          <textarea value={form.keterangan} onChange={e => set('keterangan', e.target.value)} rows={2}
+            style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} />
+        </Field>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={loading} style={{
+            padding: '9px 18px', borderRadius: 8,
+            background: 'transparent', border: '1px solid var(--border)',
+            color: 'var(--muted)', cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: "'IBM Plex Sans', sans-serif",
+          }}>
+            Batal
+          </button>
+          <button type="submit" disabled={loading} style={{
+            padding: '9px 20px', borderRadius: 8,
+            background: loading ? 'var(--dim)' : '#ef4444',
+            border: 'none', color: '#fff', fontWeight: 700,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: "'IBM Plex Sans', sans-serif",
+          }}>
+            {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function ModalDeleteSWA({ open, onClose, swa, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) setError('');
+  }, [open]);
+
+  if (!swa) return null;
+
+  async function handleDelete() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.deleteSWA(swa.id);
+      onSuccess(swa.id, res.message);
+      onClose();
+    } catch (err) {
+      setError(err?.message || 'Gagal menghapus SWA.');
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Hapus SWA" width={420}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+          Hapus data SWA <strong style={{ color: 'var(--text)' }}>{swa.id}</strong>? Tindakan ini tidak dapat dibatalkan.
+        </div>
+        {error && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 8,
+            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+            color: '#ef4444', fontSize: 12,
+          }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={loading} style={{
+            padding: '9px 18px', borderRadius: 8,
+            background: 'transparent', border: '1px solid var(--border)',
+            color: 'var(--muted)', cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: "'IBM Plex Sans', sans-serif",
+          }}>
+            Batal
+          </button>
+          <button type="button" onClick={handleDelete} disabled={loading} style={{
+            padding: '9px 20px', borderRadius: 8,
+            background: loading ? 'var(--dim)' : '#ef4444',
+            border: 'none', color: '#fff', fontWeight: 700,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: "'IBM Plex Sans', sans-serif",
+          }}>
+            {loading ? 'Menghapus...' : 'Hapus'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 const FILTER_BLANK = { tanggal_dari: '', tanggal_sampai: '', id_laporan: '', lokasi: '', id_up3: '', id_ulp: '' };
 const PAGE_LIMIT = 15;
 const sameId = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
@@ -223,6 +394,8 @@ export default function SWAPage() {
   const [currentPage,   setCurrentPage]   = useState(1);
 
   const [detailSWA, setDetailSWA] = useState(null);
+  const [editSWA, setEditSWA] = useState(null);
+  const [deleteSWA, setDeleteSWA] = useState(null);
 
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -274,6 +447,18 @@ export default function SWAPage() {
     setDraftFilter(FILTER_BLANK);
     setCurrentPage(1);
     setAppliedFilter(FILTER_BLANK);
+  }
+
+  function handleEditSuccess(updatedRow, message) {
+    showToast(message || 'SWA berhasil diperbarui.');
+    setRows(prev => prev.map(row => row.id === updatedRow.id ? { ...row, ...updatedRow } : row));
+    fetchSWA(appliedFilter, currentPage);
+  }
+
+  function handleDeleteSuccess(id, message) {
+    showToast(message || 'SWA berhasil dihapus.');
+    setRows(prev => prev.filter(row => row.id !== id));
+    fetchSWA(appliedFilter, currentPage);
   }
 
   const hasFilter = Object.values(appliedFilter).some(v => v !== '');
@@ -560,21 +745,55 @@ export default function SWAPage() {
 
                   {/* Aksi */}
                   <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                    <button
-                      onClick={() => setDetailSWA(row)}
-                      style={{
-                        padding: '6px 12px', borderRadius: 8,
-                        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                        color: '#ef4444', fontSize: 11, fontWeight: 700,
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                      }}
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                      Detail
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                      <button
+                        onClick={() => setDetailSWA(row)}
+                        title="Detail SWA"
+                        style={{
+                          width: 32, height: 32, padding: 0, borderRadius: 8,
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                          color: '#ef4444', cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setEditSWA(row)}
+                        title="Edit SWA"
+                        style={{
+                          width: 32, height: 32, padding: 0, borderRadius: 8,
+                          background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                          color: '#f59e0b', cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                          <path d="M12 20h9"/>
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setDeleteSWA(row)}
+                        title="Hapus SWA"
+                        style={{
+                          width: 32, height: 32, padding: 0, borderRadius: 8,
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                          color: '#ef4444', cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                          <polyline points="3 6 5 6 21 6"/>
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                          <path d="M10 11v6"/><path d="M14 11v6"/>
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -641,6 +860,18 @@ export default function SWAPage() {
         open={!!detailSWA}
         onClose={() => setDetailSWA(null)}
         swa={detailSWA}
+      />
+      <ModalEditSWA
+        open={!!editSWA}
+        onClose={() => setEditSWA(null)}
+        swa={editSWA}
+        onSuccess={handleEditSuccess}
+      />
+      <ModalDeleteSWA
+        open={!!deleteSWA}
+        onClose={() => setDeleteSWA(null)}
+        swa={deleteSWA}
+        onSuccess={handleDeleteSuccess}
       />
     </div>
   );
