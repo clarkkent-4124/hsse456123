@@ -8,6 +8,7 @@ frontend/dist/
 
 # ── Environment variables (jangan di-commit!) ─────────────
 .env
+.env.old
 .env.local
 .env.*.local
 frontend/.env
