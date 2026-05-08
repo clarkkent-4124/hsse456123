@@ -134,7 +134,7 @@ export default function LoginPage() {
               color: 'var(--text)',
               letterSpacing: '-0.5px',
             }}>
-              HSSE Dashboard
+              HSSE UP2D Jateng
             </h1>
             <p style={{
               margin: '4px 0 0',
@@ -335,7 +335,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <p style={{ marginTop: 24, fontSize: 11, color: 'var(--dim)', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        HSSE Dashboard &mdash; Sistem Pelaporan Pengawasan Keselamatan Kerja
+        HSSE UP2D Jateng &mdash; Sistem Pelaporan Pengawasan Keselamatan Kerja
       </p>
     </div>
   );

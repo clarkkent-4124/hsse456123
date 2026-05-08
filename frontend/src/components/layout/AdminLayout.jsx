@@ -42,6 +42,7 @@ const NAV_ITEMS = [
   {
     path: '/admin/history',
     label: 'History',
+    hidden: true,
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="12" r="9" />
@@ -101,7 +102,7 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
-  const visibleNavItems = NAV_ITEMS.filter(item => !item.adminOnly || user?.role === 'admin');
+  const visibleNavItems = NAV_ITEMS.filter(item => !item.hidden && (!item.adminOnly || user?.role === 'admin'));
 
   const [isMobile, setIsMobile]     = useState(() => window.innerWidth < MOBILE_BP);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -179,7 +180,7 @@ export default function AdminLayout() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.3px' }}>
-              HSSE Dashboard
+              HSSE UP2D Jateng
             </div>
             <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 1 }}>
               Pelaporan & Pengawasan
@@ -320,7 +321,7 @@ export default function AdminLayout() {
           {/* Mobile brand */}
           {isMobile && (
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.3px' }}>
-              HSSE Dashboard
+              HSSE UP2D Jateng
             </span>
           )}
 

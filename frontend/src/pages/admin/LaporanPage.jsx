@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../services/api';
 import Modal from '../../components/ui/Modal';
+import { exportToExcel } from '../../utils/excelExport';
 
 // ── Constants ────────────────────────────────────────────────────
 const STATUS_PEKERJAAN_OPTIONS = [
@@ -878,6 +879,47 @@ const FILTER_BLANK = {
   status_pekerjaan: '', hasil_monitoring: '',
 };
 const PAGE_LIMIT = 15;
+const EXPORT_LIMIT = 500;
+
+const LAPORAN_EXPORT_COLUMNS = [
+  { header: 'No', value: (_, index) => index + 1 },
+  { header: 'ID Laporan', key: 'id' },
+  { header: 'No Urut', key: 'no_urut' },
+  { header: 'Tanggal', key: 'tanggal' },
+  { header: 'ID UP3', key: 'id_up3' },
+  { header: 'Nama UP3', key: 'nama_up3' },
+  { header: 'ID ULP', key: 'id_ulp' },
+  { header: 'Nama ULP', key: 'nama_ulp' },
+  { header: 'ID Regu', key: 'id_regu' },
+  { header: 'Regu', key: 'nama_regu' },
+  { header: 'Lokasi', key: 'lokasi' },
+  { header: 'ID Vendor', key: 'id_vendor' },
+  { header: 'Kode Vendor', key: 'kode_vendor' },
+  { header: 'Vendor', key: 'nama_vendor' },
+  { header: 'Uraian Pekerjaan', key: 'uraian_pekerjaan' },
+  { header: 'Nama Pelaksana', key: 'nama_pelaksana' },
+  { header: 'Jumlah Pekerjaan', key: 'jumlah_pekerjaan' },
+  { header: 'Status CCTV', key: 'status_cctv' },
+  { header: 'Keterangan CCTV', key: 'keterangan_cctv' },
+  { header: 'Hasil Monitoring', key: 'hasil_monitoring' },
+  { header: 'Status APD', key: 'status_apd' },
+  { header: 'Temuan K3', key: 'temuan_k3' },
+  { header: 'Tindak Lanjut', key: 'tindak_lanjut' },
+  { header: 'Keterangan', key: 'keterangan' },
+  { header: 'Status Pekerjaan', key: 'status_pekerjaan' },
+  { header: 'Tanggal Mulai Berjalan', key: 'tanggal_pekerjaan_berjalan' },
+  { header: 'Tanggal Selesai', key: 'tanggal_pekerjaan_selesai' },
+  { header: 'Ada SWA', value: row => Number(row.has_swa) === 1 ? 'Ya' : 'Tidak' },
+  { header: 'ID SWA', key: 'swa_id' },
+  { header: 'Tanggal SWA', key: 'swa_tanggal' },
+  { header: 'Catatan SWA', key: 'swa_catatan' },
+  { header: 'Tindakan SWA', key: 'swa_tindakan' },
+  { header: 'Status SWA', key: 'status_swa' },
+  { header: 'Keterangan SWA', key: 'swa_keterangan' },
+  { header: 'Dibuat Oleh', key: 'nama_created_by' },
+  { header: 'Created At', key: 'created_at' },
+  { header: 'Updated At', key: 'updated_at' },
+];
 
 export default function LaporanPage() {
   // Master data
@@ -887,6 +929,7 @@ export default function LaporanPage() {
   const [rows,       setRows]       = useState([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
   const [loading,    setLoading]    = useState(true);
+  const [exporting,  setExporting]  = useState(false);
 
   // Filters: draft (live form) vs applied (triggers fetch)
   const [draftFilter,   setDraftFilter]   = useState(FILTER_BLANK);
@@ -928,14 +971,7 @@ export default function LaporanPage() {
   const fetchLaporan = useCallback(async (filter, page) => {
     setLoading(true);
     try {
-      const params = { page, limit: PAGE_LIMIT };
-      if (filter.tanggal_dari)    params.tanggal_dari    = filter.tanggal_dari;
-      if (filter.tanggal_sampai)  params.tanggal_sampai  = filter.tanggal_sampai;
-      if (filter.id_up3)          params.id_up3          = filter.id_up3;
-      if (filter.id_ulp)          params.id_ulp          = filter.id_ulp;
-      if (filter.status_pekerjaan)params.status_pekerjaan= filter.status_pekerjaan;
-      if (filter.hasil_monitoring)params.hasil_monitoring= filter.hasil_monitoring;
-
+      const params = buildLaporanParams(filter, page, PAGE_LIMIT);
       const res = await api.getLaporan(params);
       setRows(res.data || []);
       setPagination(res.pagination || { total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
@@ -959,6 +995,49 @@ export default function LaporanPage() {
     setDraftFilter(FILTER_BLANK);
     setCurrentPage(1);
     setAppliedFilter(FILTER_BLANK);
+  }
+
+  function buildLaporanParams(filter, page, limit) {
+    const params = { page, limit };
+    if (filter.tanggal_dari)     params.tanggal_dari     = filter.tanggal_dari;
+    if (filter.tanggal_sampai)   params.tanggal_sampai   = filter.tanggal_sampai;
+    if (filter.id_up3)           params.id_up3           = filter.id_up3;
+    if (filter.id_ulp)           params.id_ulp           = filter.id_ulp;
+    if (filter.status_pekerjaan) params.status_pekerjaan = filter.status_pekerjaan;
+    if (filter.hasil_monitoring) params.hasil_monitoring = filter.hasil_monitoring;
+    return params;
+  }
+
+  async function fetchAllLaporanForExport() {
+    const first = await api.getLaporan(buildLaporanParams(appliedFilter, 1, EXPORT_LIMIT));
+    const rowsFirst = first.data || [];
+    const totalPages = first.pagination?.totalPages || 1;
+    if (totalPages <= 1) return rowsFirst;
+
+    const rest = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, idx) =>
+        api.getLaporan(buildLaporanParams(appliedFilter, idx + 2, EXPORT_LIMIT))
+      )
+    );
+    return rowsFirst.concat(...rest.map(res => res.data || []));
+  }
+
+  async function handleDownloadExcel() {
+    setExporting(true);
+    try {
+      const data = await fetchAllLaporanForExport();
+      exportToExcel({
+        filename: `laporan-pengawasan-${new Date().toISOString().slice(0, 10)}.xls`,
+        sheetName: 'Laporan Pengawasan',
+        columns: LAPORAN_EXPORT_COLUMNS,
+        rows: data,
+      });
+      showToast(`${data.length} data laporan berhasil diunduh.`);
+    } catch {
+      showToast('Gagal download Excel laporan.', 'error');
+    } finally {
+      setExporting(false);
+    }
   }
 
   function handleAddSuccess(newRow, message) {
@@ -1164,6 +1243,22 @@ export default function LaporanPage() {
 
           {/* Buttons */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginLeft: 'auto' }}>
+            <button onClick={handleDownloadExcel} disabled={exporting} style={{
+              padding: '8px 14px', borderRadius: 8,
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              color: '#10b981', fontSize: 12, fontWeight: 700,
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              opacity: exporting ? 0.65 : 1,
+              fontFamily: "'IBM Plex Sans', sans-serif",
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {exporting ? 'Menyiapkan...' : 'Excel'}
+            </button>
             {hasFilter && (
               <button onClick={resetFilter} style={{
                 padding: '8px 14px', borderRadius: 8,

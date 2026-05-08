@@ -80,7 +80,7 @@ export default function ViewerLayout() {
 
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.2px' }}>
-              HSSE Dashboard
+              HSSE UP2D Jateng
             </div>
             <div style={{ fontSize: 10, color: 'var(--dim)' }}>Pelaporan & Pengawasan</div>
           </div>

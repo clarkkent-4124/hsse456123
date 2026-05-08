@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../services/api';
 import Modal from '../../components/ui/Modal';
+import { exportToExcel } from '../../utils/excelExport';
 
 // ── Constants ─────────────────────────────────────────────────────
 const STATUS_SWA_CFG = {
@@ -381,13 +382,39 @@ function ModalDeleteSWA({ open, onClose, swa, onSuccess }) {
 
 const FILTER_BLANK = { tanggal_dari: '', tanggal_sampai: '', id_laporan: '', lokasi: '', id_up3: '', id_ulp: '' };
 const PAGE_LIMIT = 15;
+const EXPORT_LIMIT = 500;
 const sameId = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
+
+const SWA_EXPORT_COLUMNS = [
+  { header: 'No', value: (_, index) => index + 1 },
+  { header: 'ID SWA', key: 'id' },
+  { header: 'No Urut SWA', key: 'no_urut' },
+  { header: 'Tanggal SWA', key: 'tanggal' },
+  { header: 'ID Laporan Pengawasan', key: 'id_laporan_pengawasan' },
+  { header: 'Tanggal Laporan', key: 'tanggal_laporan' },
+  { header: 'Uraian Pekerjaan', key: 'uraian_pekerjaan' },
+  { header: 'Lokasi', key: 'lokasi' },
+  { header: 'UP3', key: 'nama_up3' },
+  { header: 'ULP', key: 'nama_ulp' },
+  { header: 'Regu', key: 'nama_regu' },
+  { header: 'Vendor', key: 'nama_vendor' },
+  { header: 'Status Pekerjaan', key: 'status_pekerjaan' },
+  { header: 'Hasil Monitoring', key: 'hasil_monitoring' },
+  { header: 'Catatan SWA', key: 'catatan' },
+  { header: 'Tindakan SWA', key: 'tindakan' },
+  { header: 'Status SWA', key: 'status_swa' },
+  { header: 'Keterangan SWA', key: 'keterangan' },
+  { header: 'Created By', key: 'created_by' },
+  { header: 'Created At', key: 'created_at' },
+  { header: 'Updated At', key: 'updated_at' },
+];
 
 export default function SWAPage() {
   const [master, setMaster] = useState({ up3: [], ulp: [] });
   const [rows,       setRows]       = useState([]);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
   const [loading,    setLoading]    = useState(true);
+  const [exporting,  setExporting]  = useState(false);
 
   const [draftFilter,   setDraftFilter]   = useState(FILTER_BLANK);
   const [appliedFilter, setAppliedFilter] = useState(FILTER_BLANK);
@@ -409,14 +436,7 @@ export default function SWAPage() {
   const fetchSWA = useCallback(async (filter, page) => {
     setLoading(true);
     try {
-      const params = { page, limit: PAGE_LIMIT };
-      if (filter.tanggal_dari)  params.tanggal_dari  = filter.tanggal_dari;
-      if (filter.tanggal_sampai)params.tanggal_sampai= filter.tanggal_sampai;
-      if (filter.id_laporan)    params.id_laporan    = filter.id_laporan.trim();
-      if (filter.lokasi)        params.lokasi        = filter.lokasi.trim();
-      if (filter.id_up3)        params.id_up3        = filter.id_up3;
-      if (filter.id_ulp)        params.id_ulp        = filter.id_ulp;
-
+      const params = buildSWAParams(filter, page, PAGE_LIMIT);
       const res = await api.getSWA(params);
       setRows(res.data || []);
       setPagination(res.pagination || { total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
@@ -447,6 +467,49 @@ export default function SWAPage() {
     setDraftFilter(FILTER_BLANK);
     setCurrentPage(1);
     setAppliedFilter(FILTER_BLANK);
+  }
+
+  function buildSWAParams(filter, page, limit) {
+    const params = { page, limit };
+    if (filter.tanggal_dari)   params.tanggal_dari  = filter.tanggal_dari;
+    if (filter.tanggal_sampai) params.tanggal_sampai= filter.tanggal_sampai;
+    if (filter.id_laporan)     params.id_laporan    = filter.id_laporan.trim();
+    if (filter.lokasi)         params.lokasi        = filter.lokasi.trim();
+    if (filter.id_up3)         params.id_up3        = filter.id_up3;
+    if (filter.id_ulp)         params.id_ulp        = filter.id_ulp;
+    return params;
+  }
+
+  async function fetchAllSWAForExport() {
+    const first = await api.getSWA(buildSWAParams(appliedFilter, 1, EXPORT_LIMIT));
+    const rowsFirst = first.data || [];
+    const totalPages = first.pagination?.totalPages || 1;
+    if (totalPages <= 1) return rowsFirst;
+
+    const rest = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, idx) =>
+        api.getSWA(buildSWAParams(appliedFilter, idx + 2, EXPORT_LIMIT))
+      )
+    );
+    return rowsFirst.concat(...rest.map(res => res.data || []));
+  }
+
+  async function handleDownloadExcel() {
+    setExporting(true);
+    try {
+      const data = await fetchAllSWAForExport();
+      exportToExcel({
+        filename: `swa-${new Date().toISOString().slice(0, 10)}.xls`,
+        sheetName: 'SWA',
+        columns: SWA_EXPORT_COLUMNS,
+        rows: data,
+      });
+      showToast(`${data.length} data SWA berhasil diunduh.`);
+    } catch {
+      showToast('Gagal download Excel SWA.', 'error');
+    } finally {
+      setExporting(false);
+    }
   }
 
   function handleEditSuccess(updatedRow, message) {
@@ -596,6 +659,22 @@ export default function SWAPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginLeft: 'auto' }}>
+            <button onClick={handleDownloadExcel} disabled={exporting} style={{
+              padding: '8px 14px', borderRadius: 8,
+              background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+              color: '#10b981', fontSize: 12, fontWeight: 700,
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              opacity: exporting ? 0.65 : 1,
+              fontFamily: "'IBM Plex Sans', sans-serif",
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {exporting ? 'Menyiapkan...' : 'Excel'}
+            </button>
             {hasFilter && (
               <button onClick={resetFilter} style={{
                 padding: '8px 14px', borderRadius: 8,

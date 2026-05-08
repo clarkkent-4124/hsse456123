@@ -181,7 +181,7 @@ export default function AdminDashboardPage() {
             </div>
 
             <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.15 }}>
-              Dashboard Pelaporan & Pengawasan K3
+              Pelaporan & Pengawasan K3
             </h1>
             <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0 0', maxWidth: 560, lineHeight: 1.6 }}>
               Pantau status pekerjaan, temuan tidak aman, dan aktivitas SWA dari satu tampilan operasional.
