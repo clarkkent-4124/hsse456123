@@ -5,6 +5,10 @@ require('dotenv').config();
 const db = require('./db');
 const app  = express();
 const PORT = process.env.PORT || 5001;
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174,http://localhost:3000')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
 if (process.env.REPLICATION_ENABLED === 'true') {
   require('./schedulers/replicationScheduler');
@@ -14,7 +18,10 @@ if (process.env.REPLICATION_ENABLED === 'true') {
 
 // ── Middleware ───────────────────────────────────────────────────
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS origin tidak diizinkan: ${origin}`));
+  },
   credentials: true,
 }));
 app.use(express.json());
