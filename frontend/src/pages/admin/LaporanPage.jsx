@@ -970,8 +970,10 @@ export default function LaporanPage() {
       const res = await api.getLaporan(params);
       setRows(res.data || []);
       setPagination(res.pagination || { total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
-    } catch {
+    } catch (err) {
       setRows([]);
+      setPagination({ total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
+      showToast(err?.message || 'Gagal memuat data laporan.', 'error');
     } finally {
       setLoading(false);
     }

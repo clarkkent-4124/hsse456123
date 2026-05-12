@@ -440,8 +440,10 @@ export default function SWAPage() {
       const res = await api.getSWA(params);
       setRows(res.data || []);
       setPagination(res.pagination || { total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
-    } catch {
+    } catch (err) {
       setRows([]);
+      setPagination({ total: 0, page: 1, limit: PAGE_LIMIT, totalPages: 1 });
+      showToast(err?.message || 'Gagal memuat data SWA.', 'error');
     } finally {
       setLoading(false);
     }
