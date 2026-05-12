@@ -15,6 +15,9 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.login({ username, password });
       const { token, user: userData } = res.data;
+      if (!token || !userData) {
+        throw new Error('Response login tidak valid. Periksa konfigurasi backend.');
+      }
       localStorage.setItem('hsse-token', token);
       localStorage.setItem('hsse-user', JSON.stringify(userData));
       setUser(userData);

@@ -30,22 +30,26 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [error, setError]       = useState('');
+  const [notice, setNotice]     = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
+    setNotice(null);
 
     if (!username.trim() || !password.trim()) {
-      setError('Username dan password wajib diisi.');
+      setNotice({ type: 'error', message: 'Username dan password wajib diisi.' });
       return;
     }
 
     try {
       await login(username.trim(), password);
+      setNotice({ type: 'success', message: 'Login berhasil. Mengalihkan ke dashboard...' });
       navigate('/admin/dashboard', { replace: true });
     } catch (err) {
-      setError(err?.message || 'Username atau password salah.');
+      const message = err?.message === 'Network Error'
+        ? 'Tidak bisa terhubung ke backend. Periksa koneksi API, CORS, atau server backend.'
+        : (err?.message || 'Username atau password salah.');
+      setNotice({ type: 'error', message });
     }
   }
 
@@ -265,23 +269,31 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Error message */}
-            {error && (
+            {/* Login notification */}
+            {notice && (
               <div className="fade-in" style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 12px',
-                background: 'var(--tidak-aman-bg)',
-                border: '1px solid var(--tidak-aman-border)',
+                background: notice.type === 'success' ? 'rgba(16,185,129,0.12)' : 'var(--tidak-aman-bg)',
+                border: `1px solid ${notice.type === 'success' ? 'rgba(16,185,129,0.35)' : 'var(--tidak-aman-border)'}`,
                 borderRadius: 8,
                 fontSize: 12,
-                color: 'var(--tidak-aman)',
+                color: notice.type === 'success' ? '#10b981' : 'var(--tidak-aman)',
               }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                  {notice.type === 'success' ? (
+                    <>
+                      <path d="M20 6 9 17l-5-5" />
+                    </>
+                  ) : (
+                    <>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </>
+                  )}
                 </svg>
-                {error}
+                {notice.message}
               </div>
             )}
 
