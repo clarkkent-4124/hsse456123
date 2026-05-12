@@ -37,7 +37,7 @@ const BASE_SELECT = `
     mu.APJ_ID AS kode_up3,  mu.APJ_NAMA AS nama_up3,
     mul.UPJ_ID AS kode_ulp, mul.UPJ_NAMA AS nama_ulp,
     lp.regu AS nama_regu,
-    mv.kode_vendor, mv.nama_vendor,
+    NULL AS kode_vendor, mv.nama_vendor,
     lp.lokasi AS nama_lokasi,
     CASE WHEN sw.id IS NULL THEN 0 ELSE 1 END AS has_swa,
     sw.id AS swa_id,
