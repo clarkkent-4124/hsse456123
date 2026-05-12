@@ -1,8 +1,8 @@
 const CARDS = [
   {
     key: 'total_bulan_ini',
-    label: 'Total Bulan Ini',
-    sub: 'laporan bulan ini',
+    label: 'Total Periode',
+    sub: 'laporan pada periode filter',
     color: 'var(--accent)',
     bg: 'rgba(34,211,238,0.08)',
     border: 'rgba(34,211,238,0.25)',
@@ -57,8 +57,8 @@ const CARDS = [
   },
   {
     key: 'swa_bulan_ini',
-    label: 'SWA Bulan Ini',
-    sub: 'stop work authority',
+    label: 'SWA Periode',
+    sub: 'stop work authority periode filter',
     color: '#ef4444',
     bg: 'rgba(239,68,68,0.08)',
     border: 'rgba(239,68,68,0.25)',

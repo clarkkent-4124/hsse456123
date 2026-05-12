@@ -49,10 +49,34 @@ const KETERANGAN_CCTV_DONUT = {
   'tidak muncul di ezviz': { label: 'Tidak Terpantau Ezviz', color: '#f59e0b' },
 };
 
+function formatDateInput(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function currentMonthRange() {
+  const now = new Date();
+  return {
+    tanggal_dari: formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1)),
+    tanggal_sampai: formatDateInput(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
+}
+
+function periodParams(period) {
+  const params = {};
+  if (period.tanggal_dari) params.tanggal_dari = period.tanggal_dari;
+  if (period.tanggal_sampai) params.tanggal_sampai = period.tanggal_sampai;
+  return params;
+}
+
 export default function AdminDashboardPage() {
   const [summary, setSummary] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
   const [recent, setRecent] = useState([]);
+  const [draftPeriod, setDraftPeriod] = useState(currentMonthRange);
+  const [appliedPeriod, setAppliedPeriod] = useState(currentMonthRange);
 
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [loadingBreakdown, setLoadingBreakdown] = useState(true);
@@ -60,9 +84,10 @@ export default function AdminDashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
 
-  const fetchAllLaporan = useCallback(async () => {
+  const fetchAllLaporan = useCallback(async (period) => {
     const limit = 200;
-    const first = await api.getLaporan({ limit, page: 1 });
+    const params = { ...periodParams(period), limit, page: 1 };
+    const first = await api.getLaporan(params);
     const rows = first.data || [];
     const totalPages = first.pagination?.totalPages || 1;
 
@@ -70,7 +95,7 @@ export default function AdminDashboardPage() {
 
     const rest = await Promise.all(
       Array.from({ length: totalPages - 1 }, (_, idx) =>
-        api.getLaporan({ limit, page: idx + 2 })
+        api.getLaporan({ ...periodParams(period), limit, page: idx + 2 })
       )
     );
 
@@ -88,14 +113,14 @@ export default function AdminDashboardPage() {
 
     try {
       const [sumRes, bkRes, recentRes] = await Promise.allSettled([
-        api.getDashboardSummary(),
-        api.getDashboardBreakdown(),
-        fetchAllLaporan(),
+        api.getDashboardSummary(periodParams(appliedPeriod)),
+        api.getDashboardBreakdown(periodParams(appliedPeriod)),
+        fetchAllLaporan(appliedPeriod),
       ]);
 
       if (sumRes.status === 'fulfilled') setSummary(sumRes.value.data);
       if (bkRes.status === 'fulfilled') setBreakdown(bkRes.value.data);
-      if (recentRes.status === 'fulfilled') setRecent(recentRes.value.data || []);
+      if (recentRes.status === 'fulfilled') setRecent(recentRes.value || []);
 
       setLastUpdate(new Date());
     } finally {
@@ -104,7 +129,7 @@ export default function AdminDashboardPage() {
       setLoadingRecent(false);
       setRefreshing(false);
     }
-  }, [fetchAllLaporan]);
+  }, [appliedPeriod, fetchAllLaporan]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -117,6 +142,13 @@ export default function AdminDashboardPage() {
 
   const runningCount = summary?.berjalan_hari_ini ?? 0;
   const completedCount = summary?.selesai_hari_ini ?? 0;
+  function setPeriod(key, value) {
+    setDraftPeriod(prev => ({ ...prev, [key]: value }));
+  }
+
+  function applyPeriod() {
+    setAppliedPeriod({ ...draftPeriod });
+  }
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -294,13 +326,91 @@ export default function AdminDashboardPage() {
       </section>
 
       <section>
-        <div style={sectionLabelStyle}>Ringkasan Laporan Bulan Ini</div>
+        <div style={{
+          width: '100%',
+          marginBottom: 12,
+        }}>
+          <div className="dashboard-date-filter" style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 8,
+            flexWrap: 'wrap',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            padding: '14px 16px',
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
+          }}>
+            <label className="dashboard-date-field" style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '0 1 260px' }}>
+              <span style={{ fontSize: 10, color: 'var(--dim)', fontWeight: 800, textTransform: 'uppercase' }}>Tanggal Dari</span>
+              <input
+                type="date"
+                value={draftPeriod.tanggal_dari}
+                onChange={e => setPeriod('tanggal_dari', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  fontSize: 12,
+                  fontFamily: "'IBM Plex Sans', sans-serif",
+                }}
+              />
+            </label>
+            <label className="dashboard-date-field" style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: '0 1 260px' }}>
+              <span style={{ fontSize: 10, color: 'var(--dim)', fontWeight: 800, textTransform: 'uppercase' }}>Tanggal Sampai</span>
+              <input
+                type="date"
+                value={draftPeriod.tanggal_sampai}
+                onChange={e => setPeriod('tanggal_sampai', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  fontSize: 12,
+                  fontFamily: "'IBM Plex Sans', sans-serif",
+                }}
+              />
+            </label>
+            <button
+              className="dashboard-date-apply"
+              onClick={applyPeriod}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '9px 16px',
+                borderRadius: 8,
+                background: 'var(--accent-bg)',
+                border: '1px solid var(--accent-border)',
+                color: 'var(--accent)',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                fontFamily: "'IBM Plex Sans', sans-serif",
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Terapkan
+            </button>
+          </div>
+        </div>
         <SummaryCards data={summary} loading={loadingSummary} />
       </section>
 
       <section>
         <div style={sectionLabelStyle}>Analitik Pengawasan</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 16 }}>
           <HorizontalBarChart
             title="Laporan per UP3"
             subtitle="Total jumlah laporan berdasarkan UP3"
@@ -316,7 +426,7 @@ export default function AdminDashboardPage() {
             color="#3b82f6"
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 16, marginTop: 16 }}>
           <DonutBreakdownChart
             title="Status Pekerjaan"
             subtitle="Berjalan dan selesai"

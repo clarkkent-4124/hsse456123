@@ -274,3 +274,62 @@ input[type="password"] {
   to   { transform: translateX(0);    opacity: 1; }
 }
 .slide-in { animation: slide-in 0.2s ease; }
+
+@media (max-width: 640px) {
+  .dashboard-date-filter {
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-date-field {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+
+  .dashboard-date-apply {
+    width: 100% !important;
+    justify-content: center !important;
+    min-height: 40px !important;
+  }
+
+  .dashboard-report-header {
+    align-items: flex-start !important;
+    padding: 14px 14px 12px !important;
+  }
+
+  .dashboard-report-filters {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-report-filters input,
+  .dashboard-report-filters select {
+    min-width: 0 !important;
+    font-size: 12px !important;
+  }
+
+  .dashboard-report-scroll {
+    margin: 0 -1px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-report-scroll table {
+    min-width: 920px !important;
+  }
+
+  .dashboard-report-pagination {
+    align-items: stretch !important;
+    padding: 12px !important;
+  }
+
+  .dashboard-report-page-actions {
+    width: 100% !important;
+  }
+
+  .dashboard-report-page-actions button {
+    flex: 1 !important;
+    min-height: 36px !important;
+  }
+}

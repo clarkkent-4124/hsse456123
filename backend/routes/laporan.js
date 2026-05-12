@@ -36,7 +36,7 @@ const BASE_SELECT = `
     lp.*,
     mu.APJ_ID AS kode_up3,  mu.APJ_NAMA AS nama_up3,
     mul.UPJ_ID AS kode_ulp, mul.UPJ_NAMA AS nama_ulp,
-    mr.nama_regu,
+    lp.regu AS nama_regu,
     mv.kode_vendor, mv.nama_vendor,
     lp.lokasi AS nama_lokasi,
     CASE WHEN sw.id IS NULL THEN 0 ELSE 1 END AS has_swa,
@@ -50,7 +50,6 @@ const BASE_SELECT = `
   FROM laporan_pengawasan lp
   LEFT JOIN dc_apj        mu  ON lp.id_up3    = mu.APJ_ID
   LEFT JOIN dc_upj        mul ON lp.id_ulp    = mul.UPJ_ID
-  LEFT JOIN master_regu   mr  ON lp.id_regu   = mr.id
   LEFT JOIN master_vendor mv  ON lp.id_vendor = mv.id
   LEFT JOIN (
     SELECT s.*
@@ -115,7 +114,7 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   let locked = false;
   try {
     const {
-      tanggal, id_up3, id_ulp, id_regu, lokasi, nama_lokasi, id_vendor,
+      tanggal, id_up3, id_ulp, regu, lokasi, nama_lokasi, id_vendor,
       uraian_pekerjaan, nama_pelaksana, jumlah_pekerjaan,
       status_cctv, keterangan_cctv, status_apd, hasil_monitoring,
       temuan_k3, tindak_lanjut, keterangan,
@@ -125,7 +124,8 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     const missing = [];
     if (!tanggal)          missing.push('tanggal');
     if (!id_up3)           missing.push('id_up3');
-    if (!id_regu)          missing.push('id_regu');
+    const reguText = String(regu || '').trim();
+    if (!reguText)         missing.push('regu');
     const lokasiText = String(lokasi || nama_lokasi || '').trim();
 
     if (!lokasiText) missing.push('lokasi');
@@ -150,7 +150,7 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
       id,
       no_urut,
       tanggal,
-      id_up3, id_ulp: id_ulp || null, id_regu, lokasi: lokasiText,
+      id_up3, id_ulp: id_ulp || null, regu: reguText, lokasi: lokasiText,
       uraian_pekerjaan: uraian_pekerjaan || '',
       nama_pelaksana: nama_pelaksana || '',
       jumlah_pekerjaan: jumlah_pekerjaan || 1,
@@ -205,7 +205,7 @@ router.put('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      tanggal, id_up3, id_ulp, id_regu, lokasi, nama_lokasi, id_vendor,
+      tanggal, id_up3, id_ulp, regu, lokasi, nama_lokasi, id_vendor,
       uraian_pekerjaan, nama_pelaksana, jumlah_pekerjaan,
       status_cctv, keterangan_cctv, status_apd, hasil_monitoring,
       temuan_k3, tindak_lanjut, keterangan,
@@ -227,10 +227,11 @@ router.put('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
     }
 
     const lokasiText = String(lokasi || nama_lokasi || '').trim();
+    const reguText = String(regu || '').trim();
     const missing = [];
     if (!tanggal)    missing.push('tanggal');
     if (!id_up3)     missing.push('id_up3');
-    if (!id_regu)    missing.push('id_regu');
+    if (!reguText)   missing.push('regu');
     if (!lokasiText) missing.push('lokasi');
     if (missing.length > 0)
       return res.status(400).json({ success: false, message: `Field wajib tidak lengkap: ${missing.join(', ')}.` });
@@ -239,7 +240,7 @@ router.put('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
       tanggal,
       id_up3,
       id_ulp: id_ulp || null,
-      id_regu,
+      regu: reguText,
       lokasi: lokasiText,
       id_vendor: id_vendor || null,
       uraian_pekerjaan: uraian_pekerjaan || '',

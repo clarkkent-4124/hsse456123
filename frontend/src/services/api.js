@@ -40,8 +40,6 @@ export const api = {
   postUP3:   (body) => http.post('/master/up3', body),
   getULP:    ()     => http.get('/master/ulp'),
   postULP:   (body) => http.post('/master/ulp', body),
-  getRegu:   ()     => http.get('/master/regu'),
-  postRegu:  (body) => http.post('/master/regu', body),
   getVendor: ()     => http.get('/master/vendor'),
   postVendor:(body) => http.post('/master/vendor', body),
   getLokasi: ()     => http.get('/master/lokasi'),
@@ -62,9 +60,9 @@ export const api = {
   deleteSWA:   (id)          => http.delete(`/swa/${id}`),
 
   // ── Dashboard ──────────────────────────────────────────────
-  getDashboardSummary:   () => http.get('/dashboard/summary'),
+  getDashboardSummary:   (params = {}) => http.get('/dashboard/summary', { params }),
   getDashboardChart:     () => http.get('/dashboard/chart'),
-  getDashboardBreakdown: () => http.get('/dashboard/breakdown'),
+  getDashboardBreakdown: (params = {}) => http.get('/dashboard/breakdown', { params }),
 
   // ── Users (admin only) ─────────────────────────────────────
   getUsers:    ()         => http.get('/users'),

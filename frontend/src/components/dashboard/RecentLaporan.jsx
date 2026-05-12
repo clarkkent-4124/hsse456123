@@ -74,6 +74,10 @@ function includes(value, query) {
   return String(value || '').toLowerCase().includes(String(query || '').trim().toLowerCase());
 }
 
+function getRegu(row) {
+  return row?.regu || row?.nama_regu || '';
+}
+
 function SkeletonRow() {
   return (
     <tr>
@@ -89,7 +93,7 @@ function SkeletonRow() {
 export default function RecentLaporan({ data, loading }) {
   const [filters, setFilters] = useState(FILTER_BLANK);
   const [currentPage, setCurrentPage] = useState(1);
-  const rows = data || [];
+  const rows = useMemo(() => data || [], [data]);
 
   const setFilter = (key, value) => {
     setCurrentPage(1);
@@ -103,7 +107,7 @@ export default function RecentLaporan({ data, loading }) {
       return (
         includes(no, filters.no) &&
         includes(row.nama_up3, filters.up3) &&
-        includes(row.nama_regu, filters.regu) &&
+        includes(getRegu(row), filters.regu) &&
         includes(row.nama_ulp, filters.ulp) &&
         includes(row.uraian_pekerjaan, filters.uraian) &&
         (!filters.status_pekerjaan || row.status_pekerjaan === filters.status_pekerjaan) &&
@@ -119,14 +123,14 @@ export default function RecentLaporan({ data, loading }) {
   const pagedRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div style={{
+    <div className="dashboard-report-table" style={{
       background: 'var(--surface)',
       border: '1px solid var(--border)',
       borderRadius: 14,
       overflow: 'hidden',
       boxShadow: '0 12px 30px rgba(0,0,0,0.10)',
     }}>
-      <div style={{
+      <div className="dashboard-report-header" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -171,7 +175,7 @@ export default function RecentLaporan({ data, loading }) {
         )}
       </div>
 
-      <div style={{
+      <div className="dashboard-report-filters" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))',
         gap: 10,
@@ -209,8 +213,8 @@ export default function RecentLaporan({ data, loading }) {
         </select>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="dashboard-report-scroll" style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#263244' }}>
               {['No', 'UP3', 'Regu', 'ULP', 'Uraian Pekerjaan', 'Status Pekerjaan', 'Keterangan CCTV', 'Kelengkapan APD'].map(header => (
@@ -254,7 +258,7 @@ export default function RecentLaporan({ data, loading }) {
                   <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 700 }}>{rowNumber}</span>
                 </td>
                 <td style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap' }}>{row.nama_up3 || '-'}</td>
-                <td style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap' }}>{row.nama_regu || '-'}</td>
+                <td style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap' }}>{getRegu(row) || '-'}</td>
                 <td style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap' }}>{row.nama_ulp || '-'}</td>
                 <td style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text)', minWidth: 220 }}>
                   {truncate(row.uraian_pekerjaan, 58)}
@@ -293,7 +297,7 @@ export default function RecentLaporan({ data, loading }) {
       </div>
 
       {!loading && (
-        <div style={{
+        <div className="dashboard-report-pagination" style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -305,7 +309,7 @@ export default function RecentLaporan({ data, loading }) {
           <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 600 }}>
             Halaman {page} dari {totalPages} · {filteredRows.length} dari {rows.length} laporan
           </span>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="dashboard-report-page-actions" style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}

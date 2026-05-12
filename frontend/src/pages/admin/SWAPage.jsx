@@ -166,7 +166,7 @@ function ModalDetailSWA({ open, onClose, swa }) {
               <Row label="UP3" value={swa.nama_up3} />
             )}
             <div style={grid2}>
-              <Row label="Tim" value={swa.nama_regu} />
+              <Row label="Tim" value={swa.regu || swa.nama_regu} />
               <Row label="Vendor" value={swa.nama_vendor} />
             </div>
           </div>
@@ -396,7 +396,7 @@ const SWA_EXPORT_COLUMNS = [
   { header: 'Lokasi', key: 'lokasi' },
   { header: 'UP3', key: 'nama_up3' },
   { header: 'ULP', key: 'nama_ulp' },
-  { header: 'Regu', key: 'nama_regu' },
+  { header: 'Regu', value: row => row.regu || row.nama_regu },
   { header: 'Vendor', key: 'nama_vendor' },
   { header: 'Status Pekerjaan', key: 'status_pekerjaan' },
   { header: 'Hasil Monitoring', key: 'hasil_monitoring' },

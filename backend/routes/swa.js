@@ -44,7 +44,6 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
       LEFT JOIN laporan_pengawasan lp ON s.id_laporan_pengawasan = lp.id
       LEFT JOIN dc_apj mu ON lp.id_up3 = mu.APJ_ID
       LEFT JOIN dc_upj du ON lp.id_ulp = du.UPJ_ID
-      LEFT JOIN master_regu mr ON lp.id_regu = mr.id
       LEFT JOIN master_vendor mv ON lp.id_vendor = mv.id
       ${where}
     `;
@@ -57,11 +56,12 @@ router.get('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
         lp.tanggal            AS tanggal_laporan,
         lp.uraian_pekerjaan,
         lp.lokasi,
+        lp.regu,
         lp.status_pekerjaan,
         lp.hasil_monitoring,
         mu.APJ_NAMA AS nama_up3,
         du.UPJ_NAMA AS nama_ulp,
-        mr.nama_regu,
+        lp.regu AS nama_regu,
         mv.nama_vendor
       ${baseSql}
       ORDER BY s.tanggal DESC
@@ -180,7 +180,15 @@ router.post('/', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
 router.get('/:id', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT s.*, lp.tanggal AS tanggal_laporan, lp.uraian_pekerjaan, lp.status_pekerjaan, lp.hasil_monitoring
+      SELECT
+        s.*,
+        lp.tanggal AS tanggal_laporan,
+        lp.uraian_pekerjaan,
+        lp.lokasi,
+        lp.regu,
+        lp.regu AS nama_regu,
+        lp.status_pekerjaan,
+        lp.hasil_monitoring
       FROM swa s
       LEFT JOIN laporan_pengawasan lp ON s.id_laporan_pengawasan = lp.id
       WHERE s.id = ?

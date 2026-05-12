@@ -110,7 +110,7 @@ function Field({ label, required, children }) {
 function ModalAddLaporan({ open, onClose, master, onSuccess, laporan }) {
   const BLANK = {
     tanggal: new Date().toISOString().slice(0, 10),
-    id_up3: '', id_ulp: '', id_regu: '', lokasi: '', id_vendor: '',
+    id_up3: '', id_ulp: '', regu: '', lokasi: '', id_vendor: '',
     uraian_pekerjaan: '', nama_pelaksana: '', jumlah_pekerjaan: 1,
     status_cctv: '', keterangan_cctv: '', status_apd: '', hasil_monitoring: '',
     temuan_status: '', temuan_k3: '', tindak_lanjut: '', keterangan: '',
@@ -131,7 +131,7 @@ function ModalAddLaporan({ open, onClose, master, onSuccess, laporan }) {
         tanggal: laporan.tanggal ? String(laporan.tanggal).slice(0, 10) : new Date().toISOString().slice(0, 10),
         id_up3: laporan.id_up3 || '',
         id_ulp: laporan.id_ulp || '',
-        id_regu: laporan.id_regu || '',
+        regu: laporan.regu || laporan.nama_regu || '',
         lokasi: laporan.lokasi || laporan.nama_lokasi || '',
         id_vendor: laporan.id_vendor || '',
         uraian_pekerjaan: laporan.uraian_pekerjaan || '',
@@ -225,11 +225,8 @@ function ModalAddLaporan({ open, onClose, master, onSuccess, laporan }) {
                 </select>
               </Field>
               <Field label="Regu" required>
-                <select value={form.id_regu} onChange={e => set('id_regu', e.target.value)}
-                  required style={inputStyle}>
-                  <option value="">-- Pilih Regu --</option>
-                  {(master.regu || []).map(r => <option key={r.id} value={r.id}>{r.nama_regu}</option>)}
-                </select>
+                <input type="text" value={form.regu} onChange={e => set('regu', e.target.value)}
+                  required placeholder="Masukkan nama regu" style={inputStyle} />
               </Field>
             </div>
             <div style={grid2}>
@@ -524,7 +521,7 @@ function ModalDetailLaporan({ open, onClose, laporan }) {
               <Row label="ULP"   value={laporan.nama_ulp} />
             </div>
             <div style={grid2}>
-              <Row label="Regu"   value={laporan.nama_regu} />
+              <Row label="Regu"   value={laporan.regu || laporan.nama_regu} />
               <Row label="Lokasi" value={laporan.nama_lokasi} />
             </div>
             {laporan.nama_vendor && (
@@ -890,8 +887,7 @@ const LAPORAN_EXPORT_COLUMNS = [
   { header: 'Nama UP3', key: 'nama_up3' },
   { header: 'ID ULP', key: 'id_ulp' },
   { header: 'Nama ULP', key: 'nama_ulp' },
-  { header: 'ID Regu', key: 'id_regu' },
-  { header: 'Regu', key: 'nama_regu' },
+  { header: 'Regu', value: row => row.regu || row.nama_regu },
   { header: 'Lokasi', key: 'lokasi' },
   { header: 'ID Vendor', key: 'id_vendor' },
   { header: 'Kode Vendor', key: 'kode_vendor' },
@@ -923,7 +919,7 @@ const LAPORAN_EXPORT_COLUMNS = [
 
 export default function LaporanPage() {
   // Master data
-  const [master, setMaster] = useState({ up3: [], ulp: [], regu: [], vendor: [] });
+  const [master, setMaster] = useState({ up3: [], ulp: [], vendor: [] });
 
   // Table data
   const [rows,       setRows]       = useState([]);
@@ -956,12 +952,11 @@ export default function LaporanPage() {
   // Load master data once
   useEffect(() => {
     Promise.allSettled([
-      api.getUP3(), api.getULP(), api.getRegu(), api.getVendor(),
-    ]).then(([up3Res, ulpRes, reguRes, vendorRes]) => {
+      api.getUP3(), api.getULP(), api.getVendor(),
+    ]).then(([up3Res, ulpRes, vendorRes]) => {
       setMaster({
         up3:    up3Res.status    === 'fulfilled' ? (up3Res.value.data    || []) : [],
         ulp:    ulpRes.status    === 'fulfilled' ? (ulpRes.value.data    || []) : [],
-        regu:   reguRes.status   === 'fulfilled' ? (reguRes.value.data   || []) : [],
         vendor: vendorRes.status === 'fulfilled' ? (vendorRes.value.data || []) : [],
       });
     });
@@ -1388,7 +1383,7 @@ export default function LaporanPage() {
                   {/* Tim */}
                   <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                     <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>
-                      {row.nama_regu || '—'}
+                      {row.regu || row.nama_regu || '—'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
                       {row.nama_vendor || 'Vendor belum dipilih'}

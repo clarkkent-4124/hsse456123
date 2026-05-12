@@ -5,9 +5,29 @@ const allow   = require('../middleware/roleGuard');
 
 const router = express.Router();
 
+function buildDateWhere(alias, query) {
+  const where = [];
+  const params = [];
+  if (query.tanggal_dari) {
+    where.push(`DATE(${alias}.tanggal) >= ?`);
+    params.push(query.tanggal_dari);
+  }
+  if (query.tanggal_sampai) {
+    where.push(`DATE(${alias}.tanggal) <= ?`);
+    params.push(query.tanggal_sampai);
+  }
+  return {
+    sql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params,
+  };
+}
+
 // ── GET /api/dashboard/summary ───────────────────────────────────
 router.get('/summary', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
+    const laporanDate = buildDateWhere('lp', req.query);
+    const swaDate = buildDateWhere('s', req.query);
+
     const [[monthSummary]] = await db.query(`
       SELECT
         COUNT(*)                                                               AS total_bulan_ini,
@@ -16,16 +36,20 @@ router.get('/summary', auth, allow('admin', 'user', 'viewer'), async (req, res) 
         SUM(CASE WHEN status_pekerjaan = 'selesai'       THEN 1 ELSE 0 END)   AS selesai_bulan_ini,
         SUM(CASE WHEN hasil_monitoring = 'tidak aman'    THEN 1 ELSE 0 END)   AS tidak_aman_bulan_ini,
         SUM(CASE WHEN hasil_monitoring = 'tidak termonitor' THEN 1 ELSE 0 END) AS tidak_termonitor
-      FROM laporan_pengawasan
-      WHERE tanggal >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-        AND tanggal < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-    `);
+      FROM laporan_pengawasan lp
+      ${laporanDate.sql || `
+        WHERE lp.tanggal >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          AND lp.tanggal < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+      `}
+    `, laporanDate.params);
 
     const [[monthSwaRow]] = await db.query(`
-      SELECT COUNT(*) AS swa_bulan_ini FROM swa
-      WHERE tanggal >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-        AND tanggal < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-    `);
+      SELECT COUNT(*) AS swa_bulan_ini FROM swa s
+      ${swaDate.sql || `
+        WHERE tanggal >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+          AND tanggal < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
+      `}
+    `, swaDate.params);
 
     const [[todaySummary]] = await db.query(`
       SELECT
@@ -77,51 +101,56 @@ router.get('/chart', auth, allow('admin', 'user', 'viewer'), async (req, res) =>
 // ── GET /api/dashboard/breakdown ─────────────────────────────────
 router.get('/breakdown', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
   try {
+    const laporanDate = buildDateWhere('lp', req.query);
+    const laporanWhere = laporanDate.sql || '';
+
     const [byUP3] = await db.query(`
       SELECT COALESCE(da.APJ_NAMA, 'Belum diisi') AS label, COUNT(lp.id) AS total
       FROM laporan_pengawasan lp
       LEFT JOIN dc_apj da ON lp.id_up3 = da.APJ_ID
+      ${laporanWhere}
       GROUP BY lp.id_up3, da.APJ_NAMA
       ORDER BY total DESC
-    `);
+    `, laporanDate.params);
 
     const [byULP] = await db.query(`
       SELECT COALESCE(du.UPJ_NAMA, 'Belum diisi') AS label, COUNT(lp.id) AS total
       FROM laporan_pengawasan lp
       LEFT JOIN dc_upj du ON lp.id_ulp = du.UPJ_ID
+      ${laporanWhere}
       GROUP BY lp.id_ulp, du.UPJ_NAMA
       ORDER BY total DESC
-    `);
+    `, laporanDate.params);
 
     const [byStatusPekerjaan] = await db.query(`
       SELECT
-        status_pekerjaan AS label,
+        lp.status_pekerjaan AS label,
         COUNT(*) AS total
-      FROM laporan_pengawasan
-      WHERE status_pekerjaan IN ('berjalan', 'selesai')
-      GROUP BY status_pekerjaan
+      FROM laporan_pengawasan lp
+      ${laporanWhere ? `${laporanWhere} AND` : 'WHERE'} lp.status_pekerjaan IN ('berjalan', 'selesai')
+      GROUP BY lp.status_pekerjaan
       ORDER BY total DESC
-    `);
+    `, laporanDate.params);
 
     const [byAPD] = await db.query(`
       SELECT
-        status_apd AS label,
+        lp.status_apd AS label,
         COUNT(*) AS total
-      FROM laporan_pengawasan
-      WHERE status_apd IN ('lengkap', 'tidak lengkap', 'tidak termonitor')
-      GROUP BY status_apd
+      FROM laporan_pengawasan lp
+      ${laporanWhere ? `${laporanWhere} AND` : 'WHERE'} lp.status_apd IN ('lengkap', 'tidak lengkap', 'tidak termonitor')
+      GROUP BY lp.status_apd
       ORDER BY total DESC
-    `);
+    `, laporanDate.params);
 
     const [byKeteranganCCTV] = await db.query(`
       SELECT
-        keterangan_cctv AS label,
+        lp.keterangan_cctv AS label,
         COUNT(*) AS total
-      FROM laporan_pengawasan
-      WHERE keterangan_cctv IN ('aktif', 'tidak aktif', 'tidak muncul di Ezviz')
-      GROUP BY keterangan_cctv
+      FROM laporan_pengawasan lp
+      ${laporanWhere ? `${laporanWhere} AND` : 'WHERE'} lp.keterangan_cctv IN ('aktif', 'tidak aktif', 'tidak muncul di Ezviz')
+      GROUP BY lp.keterangan_cctv
       ORDER BY total DESC
-    `);
+    `, laporanDate.params);
 
     return res.json({
       success: true,
