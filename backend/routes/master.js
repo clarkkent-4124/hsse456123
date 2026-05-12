@@ -16,7 +16,13 @@ router.get('/up3', auth, allow('admin', 'user', 'viewer'), async (req, res) => {
         APJ_DCC AS dcc,
         APJ_ALAMAT AS alamat
       FROM dc_apj
-      ORDER BY APJ_NAMA
+      ORDER BY
+        CASE
+          WHEN UPPER(COALESCE(APJ_NAMA, '')) LIKE '%UID%' THEN 1
+          WHEN UPPER(COALESCE(APJ_NAMA, '')) LIKE '%UP2D%' THEN 2
+          ELSE 0
+        END,
+        APJ_NAMA
     `);
     return res.json({ success: true, data: rows });
   } catch (err) {
